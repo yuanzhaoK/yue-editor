@@ -1,0 +1,281 @@
+import { useState, useEffect } from 'react';
+import { Database } from '@tauri-apps/plugin-sql';
+import { Button } from './ui/button';
+import { Separator } from './ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Textarea } from './ui/textarea';
+import { toast } from './ui/toast';
+import { Database as DatabaseIcon, Table as TableIcon, Play, Download } from 'lucide-react';
+
+interface DatabaseManagerProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface TableInfo {
+  name: string;
+  sql: string;
+}
+
+interface QueryResult {
+  columns: string[];
+  rows: any[];
+}
+
+export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
+  const [tables, setTables] = useState<TableInfo[]>([]);
+  const [selectedTable, setSelectedTable] = useState<string>('');
+  const [tableData, setTableData] = useState<QueryResult | null>(null);
+  const [sqlQuery, setSqlQuery] = useState('');
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 初始化：获取所有表信息
+  useEffect(() => {
+    if (isOpen) {
+      loadTables();
+    }
+  }, [isOpen]);
+
+  // 加载所有表
+  const loadTables = async () => {
+    try {
+      setIsLoading(true);
+      const db = await Database.load('sqlite:notes.db');
+      const result = await db.select<TableInfo[]>(
+        "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      );
+      setTables(result);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to load tables:', error);
+      toast({
+        title: '错误',
+        description: '加载数据库表失败',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
+  };
+
+  // 查看表数据
+  const viewTable = async (tableName: string) => {
+    try {
+      setIsLoading(true);
+      setSelectedTable(tableName);
+      const db = await Database.load('sqlite:notes.db');
+      const result = await db.select(\`SELECT * FROM \${tableName} LIMIT 100\`);
+      
+      if (result.length > 0) {
+        setTableData({
+          columns: Object.keys(result[0]),
+          rows: result
+        });
+      } else {
+        setTableData({
+          columns: [],
+          rows: []
+        });
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error(\`Failed to view table \${tableName}:\`, error);
+      toast({
+        title: '错误',
+        description: '加载表数据失败',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
+  };
+
+  // 执行 SQL 查询
+  const executeQuery = async () => {
+    if (!sqlQuery.trim()) return;
+
+    try {
+      setIsLoading(true);
+      const db = await Database.load('sqlite:notes.db');
+      const result = await db.select(sqlQuery);
+      
+      if (result.length > 0) {
+        setQueryResult({
+          columns: Object.keys(result[0]),
+          rows: result
+        });
+      } else {
+        setQueryResult({
+          columns: [],
+          rows: []
+        });
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to execute query:', error);
+      toast({
+        title: '错误',
+        description: '执行查询失败',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
+  };
+
+  // 导出查询结果为 CSV
+  const exportToCsv = (data: QueryResult) => {
+    const headers = data.columns.join(',');
+    const rows = data.rows.map(row => 
+      data.columns.map(col => JSON.stringify(row[col])).join(',')
+    );
+    const csv = [headers, ...rows].join('\\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'query_result.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-lg w-[900px] h-[600px] flex flex-col">
+        {/* 头部 */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold flex items-center">
+            <DatabaseIcon className="mr-2 h-5 w-5" />
+            数据库管理器
+          </h2>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            关闭
+          </Button>
+        </div>
+
+        {/* 主体内容 */}
+        <div className="flex-1 flex">
+          {/* 左侧表格列表 */}
+          <div className="w-48 border-r border-border p-4 space-y-2">
+            <h3 className="text-sm font-medium mb-2 flex items-center">
+              <TableIcon className="mr-1 h-4 w-4" />
+              数据表
+            </h3>
+            <div className="space-y-1">
+              {tables.map(table => (
+                <Button
+                  key={table.name}
+                  variant={selectedTable === table.name ? 'secondary' : 'ghost'}
+                  className="w-full justify-start text-sm"
+                  onClick={() => viewTable(table.name)}
+                >
+                  {table.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* 右侧内容区 */}
+          <div className="flex-1 p-4">
+            <Tabs defaultValue="browse">
+              <TabsList>
+                <TabsTrigger value="browse">浏览数据</TabsTrigger>
+                <TabsTrigger value="query">SQL 查询</TabsTrigger>
+              </TabsList>
+
+              {/* 浏览数据标签页 */}
+              <TabsContent value="browse" className="mt-4">
+                {tableData && (
+                  <div className="border border-border rounded-lg">
+                    <div className="overflow-auto max-h-[400px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            {tableData.columns.map(column => (
+                              <TableHead key={column}>{column}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {tableData.rows.map((row, i) => (
+                            <TableRow key={i}>
+                              {tableData.columns.map(column => (
+                                <TableCell key={column}>
+                                  {JSON.stringify(row[column])}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* SQL 查询标签页 */}
+              <TabsContent value="query" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Textarea
+                    value={sqlQuery}
+                    onChange={(e) => setSqlQuery(e.target.value)}
+                    placeholder="输入 SQL 查询语句..."
+                    className="font-mono min-h-[100px]"
+                  />
+                  <div className="flex justify-between">
+                    <Button
+                      onClick={executeQuery}
+                      disabled={isLoading || !sqlQuery.trim()}
+                    >
+                      <Play className="mr-1 h-4 w-4" />
+                      执行查询
+                    </Button>
+                    {queryResult && (
+                      <Button
+                        variant="outline"
+                        onClick={() => exportToCsv(queryResult)}
+                      >
+                        <Download className="mr-1 h-4 w-4" />
+                        导出 CSV
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {queryResult && (
+                  <div className="border border-border rounded-lg">
+                    <div className="overflow-auto max-h-[300px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            {queryResult.columns.map(column => (
+                              <TableHead key={column}>{column}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {queryResult.rows.map((row, i) => (
+                            <TableRow key={i}>
+                              {queryResult.columns.map(column => (
+                                <TableCell key={column}>
+                                  {JSON.stringify(row[column])}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+} 

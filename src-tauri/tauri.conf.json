@@ -12,14 +12,11 @@
   "app": {
     "windows": [
       {
-        "label": "main",
-        "title": "本地笔记",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "center": true,
+        "fullscreen": false,
+        "height": 600,
         "resizable": true,
+        "title": "本地笔记",
+        "width": 800,
         "decorations": false,
         "transparent": true
       }
@@ -46,7 +43,9 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:notes.db"]
+      "preload": [
+        "sqlite:notes.db"
+      ]
     }
   }
 }

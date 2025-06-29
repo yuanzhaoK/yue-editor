@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X, Settings } from 'lucide-react';
+import { Minus, Square, X, Settings, Download, Keyboard } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAppStore } from '../store/useAppStore';
 
-export function TitleBar() {
+interface TitleBarProps {
+  onExportClick?: () => void;
+  onShortcutsClick?: () => void;
+}
+
+export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const { setShowSettings } = useAppStore();
 
@@ -49,6 +54,26 @@ export function TitleBar() {
       </div>
 
       <div className="flex items-center space-x-1 px-2 no-drag">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 hover:bg-muted"
+          onClick={onExportClick}
+          title="导出笔记"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 hover:bg-muted"
+          onClick={onShortcutsClick}
+          title="快捷键帮助"
+        >
+          <Keyboard className="h-4 w-4" />
+        </Button>
+        
         <Button
           variant="ghost"
           size="icon"

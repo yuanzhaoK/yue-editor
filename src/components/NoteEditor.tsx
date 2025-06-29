@@ -10,6 +10,7 @@ import { Separator } from './ui/separator';
 import { useNotesStore } from '../store/useNotesStore';
 import { useAppStore } from '../store/useAppStore';
 import { formatDate } from '../lib/utils';
+import { EmbeddedDatabaseNote } from './EmbeddedDatabaseNote';
 
 export function NoteEditor() {
   const {
@@ -37,6 +38,12 @@ export function NoteEditor() {
       setHasUnsavedChanges(true);
       if (autoSave) {
         debouncedSave();
+      }
+      if (currentNote) {
+        updateNote({
+          id: currentNote.id,
+          content: editor.getHTML()
+        });
       }
     },
     editorProps: {
@@ -242,6 +249,18 @@ export function NoteEditor() {
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} className="h-full" />
       </div>
+
+      <EmbeddedDatabaseNote
+        content={currentNote.content || ''}
+        onContentChange={(newContent) => {
+          if (currentNote) {
+            updateNote({
+              id: currentNote.id,
+              content: newContent
+            });
+          }
+        }}
+      />
     </div>
   );
 } 

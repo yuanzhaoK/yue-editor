@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { X, Sun, Moon, Monitor } from 'lucide-react';
+import { X, Sun, Moon, Monitor, Database, Upload, Download } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { useAppStore } from '../store/useAppStore';
+import { backupDatabase, restoreDatabase } from '../lib/backup';
 
 export function SettingsDialog() {
   const {
@@ -17,6 +18,7 @@ export function SettingsDialog() {
   } = useAppStore();
 
   const [tempAutoSaveInterval, setTempAutoSaveInterval] = useState(autoSaveInterval);
+  const [isBackupRestoreLoading, setIsBackupRestoreLoading] = useState(false);
 
   const handleClose = () => {
     setShowSettings(false);
@@ -25,6 +27,29 @@ export function SettingsDialog() {
   const handleSaveSettings = () => {
     setAutoSaveInterval(tempAutoSaveInterval);
     handleClose();
+  };
+
+  const handleBackup = async () => {
+    setIsBackupRestoreLoading(true);
+    try {
+      await backupDatabase();
+      alert('数据库备份成功！');
+    } catch (error) {
+      alert('备份失败: ' + error);
+    } finally {
+      setIsBackupRestoreLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsBackupRestoreLoading(true);
+    try {
+      await restoreDatabase();
+    } catch (error) {
+      alert('恢复失败: ' + error);
+    } finally {
+      setIsBackupRestoreLoading(false);
+    }
   };
 
   if (!showSettings) return null;
@@ -116,6 +141,38 @@ export function SettingsDialog() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* 数据备份恢复 */}
+          <div>
+            <h3 className="text-sm font-medium mb-3">数据管理</h3>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleBackup}
+                disabled={isBackupRestoreLoading}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                备份数据库
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleRestore}
+                disabled={isBackupRestoreLoading}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                恢复数据库
+              </Button>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <div>• 备份会保存完整的数据库文件</div>
+              <div>• 恢复会覆盖当前数据（会自动备份）</div>
             </div>
           </div>
 
