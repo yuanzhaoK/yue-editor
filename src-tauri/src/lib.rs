@@ -130,6 +130,7 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_os::init())
         // .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // 创建托盘菜单
@@ -139,8 +140,10 @@ pub fn run() {
             let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
 
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("Tauri Notes")
-                .inner_size(800.0, 600.0);
+                .title("本地笔记")
+                .inner_size(800.0, 600.0)
+                .decorations(false)
+                .resizable(true);
 
             // set transparent title bar only when building for macOS
             #[cfg(target_os = "macos")]

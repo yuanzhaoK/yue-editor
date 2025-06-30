@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Note, Category, Tag, CreateNoteData, UpdateNoteData } from '../types';
+import { Note, Category, Tag, CreateNoteData, UpdateNoteData, CreateCategoryData } from '../types';
 import * as db from '../lib/database';
 
 interface NotesState {
@@ -25,6 +25,9 @@ interface NotesState {
   createNote: (data: CreateNoteData) => Promise<Note>;
   updateNote: (data: UpdateNoteData) => Promise<Note>;
   deleteNote: (id: number) => Promise<void>;
+  createCategory: (data: CreateCategoryData) => Promise<Category>;
+  deleteCategory: (id: number) => Promise<void>;
+  deleteCategoriesBatch: (ids: number[]) => Promise<void>;
   searchNotes: (keyword: string) => Promise<void>;
   setCurrentNote: (note: Note | null) => void;
   setSelectedCategory: (categoryId: number | null) => void;
@@ -54,7 +57,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const notes = await db.getNotes(categoryId);
       set({ notes, isLoading: false });
     } catch (error) {
-      console.error('Failed to load notes:', error);
+      // 静默处理错误
       set({ isLoading: false });
     }
   },
@@ -64,7 +67,19 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const categories = await db.getCategories();
       set({ categories });
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      // 静默处理错误
+    }
+  },
+
+  createCategory: async (data) => {
+    try {
+      const newCategory = await db.createCategory(data);
+      const { categories } = get();
+      set({ categories: [...categories, newCategory] });
+      return newCategory;
+    } catch (error) {
+      // 静默处理错误
+      throw error;
     }
   },
 
@@ -73,7 +88,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const tags = await db.getTags();
       set({ tags });
     } catch (error) {
-      console.error('Failed to load tags:', error);
+      // 静默处理错误
     }
   },
 
@@ -90,7 +105,6 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       });
       return newNote;
     } catch (error) {
-      console.error('Failed to create note:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -110,7 +124,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       });
       return updatedNote;
     } catch (error) {
-      console.error('Failed to update note:', error);
+      // 静默处理错误
       throw error;
     }
   },
@@ -125,7 +139,45 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         currentNote: currentNote?.id === id ? null : currentNote
       });
     } catch (error) {
-      console.error('Failed to delete note:', error);
+      // 静默处理错误
+      throw error;
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      await db.deleteCategory(id);
+      const { categories, selectedCategoryId } = get();
+      const updatedCategories = categories.filter(category => category.id !== id);
+      set({ 
+        categories: updatedCategories,
+        selectedCategoryId: selectedCategoryId === id ? null : selectedCategoryId
+      });
+      // 如果删除的是当前选中的分类，重新加载笔记
+      if (selectedCategoryId === id) {
+        get().loadNotes();
+      }
+    } catch (error) {
+      // 静默处理错误
+      throw error;
+    }
+  },
+
+  deleteCategoriesBatch: async (ids) => {
+    try {
+      await db.deleteCategoriesBatch(ids);
+      const { categories, selectedCategoryId } = get();
+      const updatedCategories = categories.filter(category => !ids.includes(category.id));
+      set({ 
+        categories: updatedCategories,
+        selectedCategoryId: ids.includes(selectedCategoryId!) ? null : selectedCategoryId
+      });
+      // 如果删除的分类中包含当前选中的分类，重新加载笔记
+      if (selectedCategoryId && ids.includes(selectedCategoryId)) {
+        get().loadNotes();
+      }
+    } catch (error) {
+      // 静默处理错误
       throw error;
     }
   },
@@ -143,7 +195,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         set({ notes, isLoading: false });
       }
     } catch (error) {
-      console.error('Failed to search notes:', error);
+      // 静默处理错误
       set({ isLoading: false });
     }
   },
@@ -178,7 +230,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         await get().updateNote({ id, is_pinned: !note.is_pinned });
       }
     } catch (error) {
-      console.error('Failed to toggle note pinned:', error);
+      // 静默处理错误
     }
   },
 
@@ -190,7 +242,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         await get().updateNote({ id, is_favorited: !note.is_favorited });
       }
     } catch (error) {
-      console.error('Failed to toggle note favorited:', error);
+      // 静默处理错误
     }
   },
 })); 

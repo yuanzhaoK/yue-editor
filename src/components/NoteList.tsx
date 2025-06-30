@@ -22,7 +22,7 @@ export function NoteList() {
 
   useEffect(() => {
     loadNotes(selectedCategoryId || undefined);
-  }, [loadNotes, selectedCategoryId]);
+  }, [selectedCategoryId]);
 
   const handleCreateNote = async () => {
     try {
@@ -32,7 +32,7 @@ export function NoteList() {
         category_id: selectedCategoryId || undefined,
       });
     } catch (error) {
-      console.error('Failed to create note:', error);
+      // 静默处理错误，避免控制台输出
     }
   };
 

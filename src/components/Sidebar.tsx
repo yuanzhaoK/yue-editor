@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Search, Plus, FolderOpen, Star, Pin, Hash } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Search, Plus, FolderOpen, Star, Pin, Hash, Trash2, CheckSquare, Square, MoreHorizontal } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
+import { ContextMenu } from './ui/context-menu';
+import { useAlertDialog } from './ui/alert-dialog';
+import { AddCategoryDialog } from './AddCategoryDialog';
 import { useNotesStore } from '../store/useNotesStore';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
@@ -13,6 +16,8 @@ export function Sidebar() {
     selectedCategoryId,
     searchKeyword,
     loadCategories,
+    deleteCategory,
+    deleteCategoriesBatch,
     setSelectedCategory,
     setSearchKeyword,
     searchNotes,
@@ -20,26 +25,110 @@ export function Sidebar() {
   } = useNotesStore();
 
   const { sidebarCollapsed } = useAppStore();
+  const { showAlert } = useAlertDialog();
   const [localSearchKeyword, setLocalSearchKeyword] = useState('');
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<number>>(new Set());
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const searchTimeoutRef = useRef<number>();
 
   useEffect(() => {
     loadCategories();
-  }, [loadCategories]);
+  }, []);
 
-  const handleSearch = async (keyword: string) => {
+  // 防抖搜索
+  const handleSearch = (keyword: string) => {
     setLocalSearchKeyword(keyword);
-    setSearchKeyword(keyword);
-    if (keyword.trim()) {
-      await searchNotes(keyword);
-    } else {
-      await loadNotes(selectedCategoryId || undefined);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
+    
+    searchTimeoutRef.current = window.setTimeout(async () => {
+      setSearchKeyword(keyword);
+      if (keyword.trim()) {
+        await searchNotes(keyword);
+      } else {
+        await loadNotes(selectedCategoryId || undefined);
+      }
+    }, 300);
   };
 
   const handleCategorySelect = (categoryId: number | null) => {
+    if (isSelectionMode) return; // 选择模式下不允许切换分类
     setSelectedCategory(categoryId);
     setLocalSearchKeyword('');
     setSearchKeyword('');
+  };
+
+  const handleDeleteCategory = (categoryId: number) => {
+    showAlert({
+      title: '删除分类',
+      message: '确定要删除这个分类吗？删除后该分类下的笔记将移至未分类。',
+      confirmText: '删除',
+      cancelText: '取消',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteCategory(categoryId);
+        } catch (error) {
+          showAlert({
+            title: '删除失败',
+            message: '删除分类失败，请重试',
+            confirmText: '确定',
+            onConfirm: () => {},
+          });
+        }
+      },
+    });
+  };
+
+  const handleToggleSelection = (categoryId: number) => {
+    const newSelected = new Set(selectedCategoryIds);
+    if (newSelected.has(categoryId)) {
+      newSelected.delete(categoryId);
+    } else {
+      newSelected.add(categoryId);
+    }
+    setSelectedCategoryIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCategoryIds.size === categories.length) {
+      setSelectedCategoryIds(new Set());
+    } else {
+      setSelectedCategoryIds(new Set(categories.map(cat => cat.id)));
+    }
+  };
+
+  const handleBatchDelete = () => {
+    const selectedIds = Array.from(selectedCategoryIds);
+    showAlert({
+      title: '批量删除分类',
+      message: `确定要删除选中的 ${selectedIds.length} 个分类吗？删除后这些分类下的笔记将移至未分类。`,
+      confirmText: '删除',
+      cancelText: '取消',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteCategoriesBatch(selectedIds);
+          setSelectedCategoryIds(new Set());
+          setIsSelectionMode(false);
+        } catch (error) {
+          showAlert({
+            title: '删除失败',
+            message: '批量删除分类失败，请重试',
+            confirmText: '确定',
+            onConfirm: () => {},
+          });
+        }
+      },
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedCategoryIds(new Set());
   };
 
   if (sidebarCollapsed) {
@@ -129,32 +218,137 @@ export function Sidebar() {
       <div className="flex-1 p-4 space-y-1">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-muted-foreground">分类</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => {
-              // TODO: 实现添加分类
-            }}
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {!isSelectionMode && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setIsSelectionMode(true)}
+                  title="多选模式"
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setIsAddCategoryDialogOpen(true)}
+                  title="添加分类"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
-        {categories.map((category) => (
-          <Button
-            key={category.id}
-            variant={selectedCategoryId === category.id ? "secondary" : "ghost"}
-            className="w-full justify-start"
-            onClick={() => handleCategorySelect(category.id)}
-          >
-            <div
-              className="mr-2 w-3 h-3 rounded-full"
-              style={{ backgroundColor: category.color }}
-            />
-            {category.name}
-          </Button>
-        ))}
+        {/* 批量操作工具栏 */}
+        {isSelectionMode && (
+          <div className="bg-muted rounded-md p-2 mb-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="h-6 text-xs"
+                >
+                  {selectedCategoryIds.size === categories.length ? (
+                    <>
+                      <CheckSquare className="h-3 w-3 mr-1" />
+                      取消全选
+                    </>
+                  ) : (
+                    <>
+                      <Square className="h-3 w-3 mr-1" />
+                      全选
+                    </>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  已选择 {selectedCategoryIds.size} 项
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exitSelectionMode}
+                className="h-6 text-xs"
+              >
+                取消
+              </Button>
+            </div>
+            {selectedCategoryIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBatchDelete}
+                className="w-full h-6 text-xs"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                删除选中项 ({selectedCategoryIds.size})
+              </Button>
+            )}
+          </div>
+        )}
+
+        {categories.map((category) => {
+          const isSelected = selectedCategoryIds.has(category.id);
+          
+          if (isSelectionMode) {
+            return (
+              <div
+                key={category.id}
+                className={cn(
+                  "flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted",
+                  isSelected && "bg-accent"
+                )}
+                onClick={() => handleToggleSelection(category.id)}
+              >
+                <div className="flex items-center justify-center w-4 h-4">
+                  {isSelected ? (
+                    <CheckSquare className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Square className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: category.color }}
+                />
+                <span className="text-sm flex-1">{category.name}</span>
+              </div>
+            );
+          }
+
+          return (
+            <ContextMenu
+              key={category.id}
+              items={[
+                {
+                  label: '删除分类',
+                  icon: <Trash2 className="h-4 w-4" />,
+                  onClick: () => handleDeleteCategory(category.id),
+                  destructive: true,
+                },
+              ]}
+            >
+              <Button
+                variant={selectedCategoryId === category.id ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => handleCategorySelect(category.id)}
+              >
+                <div
+                  className="mr-2 w-3 h-3 rounded-full"
+                  style={{ backgroundColor: category.color }}
+                />
+                {category.name}
+              </Button>
+            </ContextMenu>
+          );
+        })}
       </div>
 
       <Separator />
@@ -183,6 +377,12 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
+
+      {/* 添加分类对话框 */}
+      <AddCategoryDialog
+        isOpen={isAddCategoryDialogOpen}
+        onClose={() => setIsAddCategoryDialogOpen(false)}
+      />
     </div>
   );
 } 

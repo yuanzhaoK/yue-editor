@@ -23,7 +23,7 @@ export function NoteEditor() {
 
   const { autoSave, autoSaveInterval } = useAppStore();
   const titleRef = useRef<HTMLInputElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<number>();
 
   const editor = useEditor({
     extensions: [
@@ -34,16 +34,10 @@ export function NoteEditor() {
       Typography,
     ],
     content: currentNote?.content || '',
-    onUpdate: ({ editor }) => {
+    onUpdate: () => {
       setHasUnsavedChanges(true);
       if (autoSave) {
         debouncedSave();
-      }
-      if (currentNote) {
-        updateNote({
-          id: currentNote.id,
-          content: editor.getHTML()
-        });
       }
     },
     editorProps: {

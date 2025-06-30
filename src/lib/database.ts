@@ -187,6 +187,12 @@ export async function deleteCategory(id: number): Promise<void> {
   await database.execute('DELETE FROM categories WHERE id = ?', [id]);
 }
 
+export async function deleteCategoriesBatch(ids: number[]): Promise<void> {
+  const database = await initDatabase();
+  const placeholders = ids.map(() => '?').join(',');
+  await database.execute(`DELETE FROM categories WHERE id IN (${placeholders})`, ids);
+}
+
 // 标签相关操作
 export async function createTag(data: CreateTagData): Promise<Tag> {
   const database = await initDatabase();

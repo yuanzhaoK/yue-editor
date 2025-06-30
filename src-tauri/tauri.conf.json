@@ -12,18 +12,6 @@
   "app": {
     "enableGTKAppId": false,
     "macOSPrivateApi": false,
-    "windows": [
-      {
-        "label": "main",
-        "fullscreen": false,
-        "height": 600,
-        "resizable": true,
-        "title": "本地笔记",
-        "width": 800,
-        "decorations": false,
-        "transparent": true
-      }
-    ],
     "security": {
       "assetProtocol": {
         "enable": false,
