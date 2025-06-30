@@ -13,11 +13,23 @@ export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const { setShowSettings } = useAppStore();
 
+  // 调试：确保getCurrentWindow可用
+  useEffect(() => {
+    console.log('TitleBar mounted');
+    const window = getCurrentWindow();
+    console.log('Current window:', window);
+  }, []);
+
   useEffect(() => {
     const checkMaximized = async () => {
-      const window = getCurrentWindow();
-      const maximized = await window.isMaximized();
-      setIsMaximized(maximized);
+      try {
+        const window = getCurrentWindow();
+        const maximized = await window.isMaximized();
+        setIsMaximized(maximized);
+        console.log('Window maximized state:', maximized);
+      } catch (error) {
+        console.error('Failed to check maximized state:', error);
+      }
     };
 
     checkMaximized();
@@ -31,29 +43,70 @@ export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
   }, []);
 
   const handleMinimize = async () => {
-    await getCurrentWindow().minimize();
+    try {
+      console.log('Minimize button clicked');
+      const window = getCurrentWindow();
+      console.log('About to minimize window:', window.label);
+      await window.minimize();
+      console.log('Window minimized successfully');
+    } catch (error) {
+      console.error('Failed to minimize window:', error);
+    }
   };
 
   const handleMaximize = async () => {
-    await getCurrentWindow().toggleMaximize();
+    try {
+      console.log('Maximize button clicked');
+      const window = getCurrentWindow();
+      console.log('About to toggle maximize window:', window.label);
+      await window.toggleMaximize();
+      console.log('Window maximize toggled successfully');
+    } catch (error) {
+      console.error('Failed to maximize window:', error);
+    }
   };
 
   const handleClose = async () => {
-    await getCurrentWindow().close();
+    try {
+      console.log('Close button clicked');
+      const window = getCurrentWindow();
+      console.log('About to close window:', window.label);
+      await window.close();
+      console.log('Window closed successfully');
+    } catch (error) {
+      console.error('Failed to close window:', error);
+    }
+  };
+
+  // 测试按钮点击
+  const handleTestClick = () => {
+    console.log('Test button clicked - events are working!');
+    alert('按钮点击事件正常工作！');
   };
 
   return (
-    <div className="flex items-center justify-between h-12 bg-background/95 backdrop-blur-sm border-b border-border drag-region">
+    <div data-tauri-drag-region className="flex items-center justify-between h-12 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="flex items-center px-4">
-        <div className="flex items-center space-x-2 no-drag">
+        <div className="flex items-center space-x-2" data-tauri-drag-region={false}>
           <div className="w-3 h-3 rounded-full bg-red-500"></div>
           <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
           <div className="w-3 h-3 rounded-full bg-green-500"></div>
         </div>
-        <span className="ml-4 text-sm font-medium text-foreground">本地笔记</span>
+        <span className="ml-4 text-sm font-medium text-foreground" data-tauri-drag-region>本地笔记</span>
       </div>
 
-      <div className="flex items-center space-x-1 px-2 no-drag">
+      <div className="flex items-center space-x-1 px-2" data-tauri-drag-region={false}>
+        {/* 测试按钮 */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 hover:bg-blue-500"
+          onClick={handleTestClick}
+          title="测试按钮"
+        >
+          <span className="text-xs">T</span>
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"

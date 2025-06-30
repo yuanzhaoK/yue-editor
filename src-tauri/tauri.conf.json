@@ -10,8 +10,11 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "enableGTKAppId": false,
+    "macOSPrivateApi": false,
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
         "height": 600,
         "resizable": true,
@@ -22,13 +25,23 @@
       }
     ],
     "security": {
+      "assetProtocol": {
+        "enable": false,
+        "scope": []
+      },
+      "dangerousDisableAssetCspModification": false,
+      "freezePrototype": false,
+      "pattern": {
+        "use": "brownfield"
+      },
       "csp": null
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
       "menuOnLeftClick": false
-    }
+    },
+    "withGlobalTauri": false
   },
   "bundle": {
     "active": true,

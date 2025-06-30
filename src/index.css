@@ -76,14 +76,7 @@
   @apply bg-muted-foreground/50;
 }
 
-/* 无边框窗口拖拽区域 */
-.drag-region {
-  -webkit-app-region: drag;
-}
-
-.no-drag {
-  -webkit-app-region: no-drag;
-}
+/* Tauri 2.0 使用 data-tauri-drag-region 属性进行窗口拖拽 */
 
 /* 编辑器样式 */
 .ProseMirror {
