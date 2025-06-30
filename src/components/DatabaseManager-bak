@@ -1,12 +1,24 @@
-import { useState, useEffect } from 'react';
-import { Database } from '@tauri-apps/plugin-sql';
-import { Button } from './ui/button';
-import { Separator } from './ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Textarea } from './ui/textarea';
-import { toast } from './ui/toast';
-import { Database as DatabaseIcon, Table as TableIcon, Play, Download } from 'lucide-react';
+import { useState, useEffect } from "react";
+import Database from "@tauri-apps/plugin-sql";
+import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
+import { Textarea } from "./ui/textarea";
+import { toast } from "./ui/toast";
+import {
+  Database as DatabaseIcon,
+  Table as TableIcon,
+  Play,
+  Download,
+} from "lucide-react";
 
 interface DatabaseManagerProps {
   isOpen: boolean;
@@ -25,9 +37,9 @@ interface QueryResult {
 
 export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
   const [tables, setTables] = useState<TableInfo[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string>('');
+  const [selectedTable, setSelectedTable] = useState<string>("");
   const [tableData, setTableData] = useState<QueryResult | null>(null);
-  const [sqlQuery, setSqlQuery] = useState('');
+  const [sqlQuery, setSqlQuery] = useState("");
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,18 +54,18 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
   const loadTables = async () => {
     try {
       setIsLoading(true);
-      const db = await Database.load('sqlite:notes.db');
+      const db = await Database.load("sqlite:notes.db");
       const result = await db.select<TableInfo[]>(
         "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
       );
       setTables(result);
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to load tables:', error);
+      console.error("Failed to load tables:", error);
       toast({
-        title: '错误',
-        description: '加载数据库表失败',
-        variant: 'destructive',
+        title: "错误",
+        description: "加载数据库表失败",
+        variant: "destructive",
       });
       setIsLoading(false);
     }
@@ -64,27 +76,27 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
     try {
       setIsLoading(true);
       setSelectedTable(tableName);
-      const db = await Database.load('sqlite:notes.db');
-      const result = await db.select(\`SELECT * FROM \${tableName} LIMIT 100\`);
-      
+      const db = await Database.load("sqlite:notes.db");
+      const result = await db.select(`SELECT * FROM ${tableName} LIMIT 100`);
+
       if (result.length > 0) {
         setTableData({
           columns: Object.keys(result[0]),
-          rows: result
+          rows: result,
         });
       } else {
         setTableData({
           columns: [],
-          rows: []
+          rows: [],
         });
       }
       setIsLoading(false);
     } catch (error) {
-      console.error(\`Failed to view table \${tableName}:\`, error);
+      console.error(`Failed to view table ${tableName}:`, error);
       toast({
-        title: '错误',
-        description: '加载表数据失败',
-        variant: 'destructive',
+        title: "错误",
+        description: "加载表数据失败",
+        variant: "destructive",
       });
       setIsLoading(false);
     }
@@ -96,27 +108,27 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
 
     try {
       setIsLoading(true);
-      const db = await Database.load('sqlite:notes.db');
+      const db = await Database.load("sqlite:notes.db");
       const result = await db.select(sqlQuery);
-      
+
       if (result.length > 0) {
         setQueryResult({
           columns: Object.keys(result[0]),
-          rows: result
+          rows: result,
         });
       } else {
         setQueryResult({
           columns: [],
-          rows: []
+          rows: [],
         });
       }
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to execute query:', error);
+      console.error("Failed to execute query:", error);
       toast({
-        title: '错误',
-        description: '执行查询失败',
-        variant: 'destructive',
+        title: "错误",
+        description: "执行查询失败",
+        variant: "destructive",
       });
       setIsLoading(false);
     }
@@ -124,17 +136,17 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
 
   // 导出查询结果为 CSV
   const exportToCsv = (data: QueryResult) => {
-    const headers = data.columns.join(',');
-    const rows = data.rows.map(row => 
-      data.columns.map(col => JSON.stringify(row[col])).join(',')
+    const headers = data.columns.join(",");
+    const rows = data.rows.map((row) =>
+      data.columns.map((col) => JSON.stringify(row[col])).join(",")
     );
-    const csv = [headers, ...rows].join('\\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = [headers, ...rows].join("\\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'query_result.csv');
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "query_result.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -165,10 +177,10 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
               数据表
             </h3>
             <div className="space-y-1">
-              {tables.map(table => (
+              {tables.map((table) => (
                 <Button
                   key={table.name}
-                  variant={selectedTable === table.name ? 'secondary' : 'ghost'}
+                  variant={selectedTable === table.name ? "secondary" : "ghost"}
                   className="w-full justify-start text-sm"
                   onClick={() => viewTable(table.name)}
                 >
@@ -194,7 +206,7 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            {tableData.columns.map(column => (
+                            {tableData.columns.map((column) => (
                               <TableHead key={column}>{column}</TableHead>
                             ))}
                           </TableRow>
@@ -202,7 +214,7 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
                         <TableBody>
                           {tableData.rows.map((row, i) => (
                             <TableRow key={i}>
-                              {tableData.columns.map(column => (
+                              {tableData.columns.map((column) => (
                                 <TableCell key={column}>
                                   {JSON.stringify(row[column])}
                                 </TableCell>
@@ -251,7 +263,7 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            {queryResult.columns.map(column => (
+                            {queryResult.columns.map((column) => (
                               <TableHead key={column}>{column}</TableHead>
                             ))}
                           </TableRow>
@@ -259,7 +271,7 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
                         <TableBody>
                           {queryResult.rows.map((row, i) => (
                             <TableRow key={i}>
-                              {queryResult.columns.map(column => (
+                              {queryResult.columns.map((column) => (
                                 <TableCell key={column}>
                                   {JSON.stringify(row[column])}
                                 </TableCell>
@@ -278,4 +290,4 @@ export function DatabaseManager({ isOpen, onClose }: DatabaseManagerProps) {
       </div>
     </div>
   );
-} 
+}
