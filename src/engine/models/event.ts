@@ -153,11 +153,15 @@ export class EventModel {
    * @param eventType - 事件类型
    * @param callback - 回调函数
    */
-  off<T extends any>(eventType: string, callback: EventCallback<T>): void {
+  off<T extends any>(eventType: string, callback?: EventCallback<T>): void {
     const listeners = this.listeners.get(eventType) || [];
-    const index = listeners.findIndex(listener => listener.callback === callback);
-    if (index !== -1) {
-      listeners.splice(index, 1);
+    if (callback) {
+      const index = listeners.findIndex(listener => listener.callback === callback);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+      }
+    } else {
+      this.listeners.delete(eventType);
     }
     if (listeners.length === 0) {
       this.listeners.delete(eventType);
