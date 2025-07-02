@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { platform } from '@tauri-apps/plugin-os';
-import { Minus, Square, X, Settings, Download, Keyboard } from 'lucide-react';
+import { Minus, Square, X, Settings, Download, Keyboard, DatabaseZap } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAppStore } from '../store/useAppStore';
+import { useAlertDialog } from './ui/alert-dialog';
 
 interface TitleBarProps {
   onExportClick?: () => void;
@@ -17,6 +19,7 @@ export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState<string>('');
   const { setShowSettings } = useAppStore();
+  const { showAlert } = useAlertDialog();
 
   useEffect(() => {
     if (!isTauri) return; // 如果不在Tauri环境中，跳过
@@ -102,6 +105,28 @@ export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
     } catch (error) {
       // 静默处理错误
     }
+  };
+
+  const handleDeleteDatabase = () => {
+    showAlert({
+      title: '删除数据库',
+      message: '确定要删除数据库文件吗？此操作不可逆，并将重启应用。',
+      confirmText: '删除并重启',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await invoke('delete_database');
+        } catch (error) {
+          console.error('Failed to delete database:', error);
+          showAlert({
+            title: '删除失败',
+            message: `无法删除数据库文件: ${error}`,
+            confirmText: '好的',
+            onConfirm: () => {},
+          });
+        }
+      },
+    });
   };
 
   // macOS样式的窗口控制按钮（左上角）
@@ -218,6 +243,16 @@ export function TitleBar({ onExportClick, onShortcutsClick }: TitleBarProps) {
           title="设置"
         >
           <Settings className="h-4 w-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDeleteDatabase}
+          className="hover:bg-destructive hover:text-destructive-foreground h-8 w-8 p-0"
+          title="删除数据库并重启"
+        >
+          <DatabaseZap className="h-4 w-4" />
         </Button>
 
         {!isMacOS && <WindowsControls />}

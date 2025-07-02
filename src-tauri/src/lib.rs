@@ -123,6 +123,28 @@ async fn restore_database(app: tauri::AppHandle, file_path: String) -> Result<()
     Ok(())
 }
 
+#[tauri::command]
+async fn delete_database(app: tauri::AppHandle) -> Result<(), String> {
+    use std::fs;
+
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("无法获取应用数据目录: {}", e))?;
+    
+    let db_path = app_data_dir.join("notes.db");
+
+    if db_path.exists() {
+        fs::remove_file(&db_path)
+            .map_err(|e| format!("无法删除数据库文件: {}", e))?;
+    }
+
+    // 重启应用以重新生成数据库
+    app.restart();
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -263,7 +285,8 @@ pub fn run() {
             export_note_to_markdown,
             export_all_notes_to_markdown,
             backup_database,
-            restore_database
+            restore_database,
+            delete_database
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

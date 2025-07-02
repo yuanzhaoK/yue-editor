@@ -57,6 +57,7 @@ async function createTables(database: Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
+      editor_type TEXT NOT NULL DEFAULT 'tiptap',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       category_id INTEGER,
@@ -110,6 +111,11 @@ export async function createNote(data: CreateNoteData): Promise<Note> {
     data.category_id || null,
   ];
 
+  if (data.editor_type) {
+    columns.push('editor_type');
+    values.push(data.editor_type);
+  }
+
   if (data.is_pinned) {
     columns.push('is_pinned');
     values.push(1);
@@ -145,6 +151,10 @@ export async function updateNote(data: UpdateNoteData): Promise<Note> {
   if (data.content !== undefined) {
     fields.push("content = ?");
     values.push(data.content);
+  }
+  if (data.editor_type !== undefined) {
+    fields.push("editor_type = ?");
+    values.push(data.editor_type);
   }
   if (data.category_id !== undefined) {
     fields.push("category_id = ?");

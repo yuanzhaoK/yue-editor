@@ -4,9 +4,15 @@ import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { useNotesStore } from '../store/useNotesStore';
 import { formatDate, truncateText } from '../lib/utils';
-import { Note } from '../types';
+import { EditorType, Note } from '../types';
 import { ContextMenu } from './ui/context-menu';
 import { useAlertDialog } from './ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 export function NoteList() {
   const {
@@ -42,15 +48,16 @@ export function NoteList() {
     return '所有笔记';
   };
 
-  const handleCreateNote = async () => {
+  const handleCreateNote = async (editor_type: EditorType) => {
     try {
       await createNote({
         title: '新建笔记',
         content: '',
+        editor_type,
         category_id: selectedCategoryId || undefined,
       });
     } catch (error) {
-      // 静默处理错误，避免控制台输出
+      console.error('Failed to create note:', error);
     }
   };
 
@@ -90,14 +97,21 @@ export function NoteList() {
         <h2 className="text-lg font-semibold">
           {getTitle()} ({notes.length})
         </h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleCreateNote}
-          className="h-8 w-8"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleCreateNote('tiptap')}>
+              普通笔记
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCreateNote('custom')}>
+              自定义笔记
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Separator />
@@ -112,7 +126,7 @@ export function NoteList() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleCreateNote}
+                onClick={() => handleCreateNote('tiptap')}
                 className="mt-4"
               >
                 <Plus className="mr-2 h-4 w-4" />

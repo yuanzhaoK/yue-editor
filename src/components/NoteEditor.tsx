@@ -10,7 +10,7 @@ import { Separator } from './ui/separator';
 import { useNotesStore } from '../store/useNotesStore';
 import { useAppStore } from '../store/useAppStore';
 import { formatDate } from '../lib/utils';
-import { EmbeddedDatabaseNote } from './EmbeddedDatabaseNote';
+import CustomNoteEditor from './CustomNoteEditor';
 
 export function NoteEditor() {
   const {
@@ -61,7 +61,10 @@ export function NoteEditor() {
     if (!currentNote || !hasUnsavedChanges) return;
 
     const title = titleRef.current?.value || currentNote.title;
-    const content = editor?.getHTML() || '';
+    const content =
+      currentNote.editor_type === 'tiptap' && editor
+        ? editor.getHTML()
+        : currentNote.content;
 
     try {
       await updateNote({
@@ -84,7 +87,9 @@ export function NoteEditor() {
   // 当选择新笔记时更新编辑器内容
   useEffect(() => {
     if (currentNote && editor) {
-      editor.commands.setContent(currentNote.content || '');
+      if (currentNote.editor_type === 'tiptap') {
+        editor.commands.setContent(currentNote.content || '');
+      }
       if (titleRef.current) {
         titleRef.current.value = currentNote.title || '';
       }
@@ -161,100 +166,108 @@ export function NoteEditor() {
           className="text-lg font-semibold border-none shadow-none px-0 focus-visible:ring-0"
         />
 
-        <Separator className="my-4" />
+        {currentNote.editor_type === 'tiptap' && (
+          <>
+            <Separator className="my-4" />
 
-        {/* 格式化工具栏 */}
-        {editor && (
-          <div className="flex items-center space-x-1">
-            <Button
-              variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBold().run()}
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
+            {/* 格式化工具栏 */}
+            {editor && (
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => editor.chain().focus().toggleBold().run()}
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
 
-            <Separator orientation="vertical" className="h-6" />
+                <Button
+                  variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => editor.chain().focus().toggleItalic().run()}
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
 
-            <Button
-              variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Button>
+                <Separator orientation="vertical" className="h-6" />
 
-            <Button
-              variant={editor.isActive('blockquote') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            >
-              <Quote className="h-4 w-4" />
-            </Button>
+                <Button
+                  variant={
+                    editor.isActive('bulletList') ? 'secondary' : 'ghost'
+                  }
+                  size="sm"
+                  onClick={() =>
+                    editor.chain().focus().toggleBulletList().run()
+                  }
+                >
+                  <List className="h-4 w-4" />
+                </Button>
 
-            <Button
-              variant={editor.isActive('code') ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleCode().run()}
-            >
-              <Code className="h-4 w-4" />
-            </Button>
+                <Button
+                  variant={
+                    editor.isActive('orderedList') ? 'secondary' : 'ghost'
+                  }
+                  size="sm"
+                  onClick={() =>
+                    editor.chain().focus().toggleOrderedList().run()
+                  }
+                >
+                  <ListOrdered className="h-4 w-4" />
+                </Button>
 
-            <Separator orientation="vertical" className="h-6" />
+                <Button
+                  variant={
+                    editor.isActive('blockquote') ? 'secondary' : 'ghost'
+                  }
+                  size="sm"
+                  onClick={() =>
+                    editor.chain().focus().toggleBlockquote().run()
+                  }
+                >
+                  <Quote className="h-4 w-4" />
+                </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-            >
-              <Undo className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-            >
-              <Redo className="h-4 w-4" />
-            </Button>
-          </div>
+                <Button
+                  variant={editor.isActive('code') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => editor.chain().focus().toggleCode().run()}
+                >
+                  <Code className="h-4 w-4" />
+                </Button>
+
+                <Separator orientation="vertical" className="h-6" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editor.chain().focus().undo().run()}
+                  disabled={!editor.can().undo()}
+                >
+                  <Undo className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editor.chain().focus().redo().run()}
+                  disabled={!editor.can().redo()}
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* 编辑器内容区域 */}
       <div className="flex-1 overflow-y-auto">
-        <EditorContent editor={editor} className="h-full" />
+        {currentNote.editor_type === 'tiptap' ? (
+          <EditorContent editor={editor} className="h-full" />
+        ) : (
+          <CustomNoteEditor />
+        )}
       </div>
-
-      <EmbeddedDatabaseNote
-        content={currentNote.content || ''}
-        onContentChange={(newContent) => {
-          if (currentNote) {
-            updateNote({
-              id: currentNote.id,
-              content: newContent
-            });
-          }
-        }}
-      />
     </div>
   );
 } 
