@@ -38,7 +38,7 @@ const getWindow = (node?: Node): Window => {
  * @param root - 根节点
  * @returns 节点数组
  */
-const exprToNodes = (expr: string | Node | NodeModel, root?: Node): Node[] => {
+const exprToNodes = (expr: string | Node | NodeModel | Node[] | NodeModel[], root?: Node): Node[] => {
   let nodes: Node[] = [];
 
   if (typeof expr === 'string') {
@@ -59,8 +59,10 @@ const exprToNodes = (expr: string | Node | NodeModel, root?: Node): Node[] => {
     }
   } else if (expr instanceof NodeModel) {
     nodes = expr.toArray();
-  } else if (expr && expr.nodeType) {
-    nodes = [expr];
+  } else if (expr && (expr as any).nodeType) {
+    nodes = [expr as Node];
+  } else if (Array.isArray(expr)) {
+    nodes = expr.flatMap(item => item instanceof NodeModel ? item.toArray() : [item as Node]);
   }
 
   return nodes;
@@ -419,9 +421,9 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取父节点
    */
-  parent(): NodeModelInterface | undefined {
+  parent(): NodeModel | undefined {
     const node = this[0].parentNode;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
@@ -453,56 +455,56 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取第一个子节点
    */
-  first(): NodeModelInterface | undefined {
+  first(): NodeModel | undefined {
     const node = this[0].firstChild;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 获取最后一个子节点
    */
-  last(): NodeModelInterface | undefined {
+  last(): NodeModel | undefined {
     const node = this[0].lastChild;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 获取前一个兄弟节点
    */
-  prev(): NodeModelInterface | undefined {
+  prev(): NodeModel | undefined {
     const node = this[0].previousSibling;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 获取后一个兄弟节点
    */
-  next(): NodeModelInterface | undefined {
+  next(): NodeModel | undefined {
     const node = this[0].nextSibling;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 获取前一个元素兄弟节点
    */
-  prevElement(): NodeModelInterface | undefined {
+  prevElement(): NodeModel | undefined {
     const node = (this[0] as Element).previousElementSibling;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 获取后一个元素兄弟节点
    */
-  nextElement(): NodeModelInterface | undefined {
+  nextElement(): NodeModel | undefined {
     const node = (this[0] as Element).nextElementSibling;
-    return node ? new NodeModel(node) as NodeModelInterface : undefined;
+    return node ? new NodeModel(node) as NodeModel : undefined;
   }
 
   /**
    * 是否包含其他节点
    * @param otherNode - 其他节点
    */
-  contains(otherNode: Node | NodeModelInterface): boolean {
+  contains(otherNode: Node | NodeModel): boolean {
     const targetNode = otherNode instanceof NodeModel ? otherNode[0] : otherNode as Node;
     return contains(this[0], targetNode as Node);
   }
@@ -511,7 +513,7 @@ export class NodeModel implements NodeModelInterface {
    * 查找子节点
    * @param selector - CSS 选择器
    */
-  find(selector: string): NodeModelInterface {
+  find(selector: string): NodeModel {
     const results: Node[] = [];
 
     this.each((node) => {
@@ -521,7 +523,7 @@ export class NodeModel implements NodeModelInterface {
       }
     });
 
-    return new NodeModel(results) as NodeModelInterface;
+    return new NodeModel(results) as NodeModel;
   }
 
   /**
@@ -566,7 +568,7 @@ export class NodeModel implements NodeModelInterface {
   removeFontSize(): NodeModelInterface {
     const classValue = this.attr('class');
     if (classValue) {
-      this.attr('class', classValue.replace(/lake-fontsize-[\d]{1,2}/, ''));
+      this.attr('class', classValue.replace(/daphne-fontsize-[\d]{1,2}/, ''));
     }
     return this as NodeModelInterface;
   }
@@ -1005,8 +1007,10 @@ export class NodeModel implements NodeModelInterface {
 
     return new NodeModel(nodes) as NodeModelInterface;
   }
+}
 
 
-
-
+export default (expr: string | Node | NodeModel | Node[] | NodeModel[], root?: Node): NodeModel => {
+  const nodes = exprToNodes(expr, root)
+  return new NodeModel(nodes, root) as NodeModel
 }

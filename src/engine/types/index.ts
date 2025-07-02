@@ -4,6 +4,8 @@
  * 这个文件定义了引擎层的所有核心类型，为整个编辑器提供类型安全保障
  */
 
+import { NodeModel } from "../core/node";
+
 /**
  * DOM 节点相关类型
  */
@@ -92,9 +94,9 @@ export interface CardValue {
 /**
  * 卡片工具栏项目类型
  */
-export interface CardToolbarItem {
+export interface CardToolbarItemConfig {
   /** 工具栏项类型 */
-  type: 'button' | 'dropdown' | 'separator' | 'dnd' | 'copy' | 'delete' | 'maximize';
+  type: 'button' | 'dropdown' | 'separator' | 'dnd' | 'copy' | 'delete' | 'maximize' | 'node' | 'collapse' | 'expand';
 
   /** 标题 */
   title?: string;
@@ -102,13 +104,28 @@ export interface CardToolbarItem {
   /** 图标 */
   icon?: string;
 
-  /** 点击回调 */
-  onClick?: () => void;
-
   /** 是否禁用 */
   disabled?: boolean;
 }
+export interface CardToolbarItem {
+  /** 工具栏项类型 */
+  type: 'button' | 'dropdown' | 'separator' | 'dnd' | 'copy' | 'delete' | 'maximize' | 'node' | 'collapse' | 'expand';
 
+  node: NodeModel;
+
+  name: string;
+
+  iconName: string;
+
+  title: string;
+
+  /** 图标 */
+  icon?: string;
+
+  /** 点击回调 */
+  onClick?: () => void;
+
+}
 /**
  * 选区范围接口
  */
@@ -648,4 +665,43 @@ export interface SidebarInterface {
 
   /** 恢复侧边栏 */
   restore(): void;
+}
+
+/**
+ * 块组件数据
+ */
+export interface BlockComponentData {
+  /** 块组件名称 */
+  name: string;
+  /** 卡片组件实例 */
+  component: CardInterface;
+  /** 卡片根节点 */
+  node: NodeModel;
+
+  blockRoot: NodeModel;
+
+  /** 块组件实例 */
+  instance: CardInterface;
+
+  value: CardValue;
+
+  type: CardType;
+
+  container: NodeModel;
+
+  state: CardState;
+
+  hasFocus?: boolean;
+
+  /** 是否嵌入工具栏 */
+  embedToolbar?: () => CardToolbarItemConfig[];
+}
+
+
+export interface BlockConfig {
+  component: BlockComponentData;
+  engine: any;
+  contentView: HTMLElement;
+  cardRoot: NodeModel;
+  node: NodeModel;
 }

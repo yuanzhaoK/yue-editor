@@ -63,12 +63,12 @@ export function createBookmark(range: RangeInterface): { anchor: Node; focus: No
 
   // 创建锚点标记
   const anchor = doc.createElement('span');
-  anchor.setAttribute('data-lake-bookmark', 'anchor');
+  anchor.setAttribute('data-daphne-bookmark', 'anchor');
   anchor.style.display = 'none';
 
   // 创建焦点标记
   const focus = doc.createElement('span');
-  focus.setAttribute('data-lake-bookmark', 'focus');
+  focus.setAttribute('data-daphne-bookmark', 'focus');
   focus.style.display = 'none';
 
   if (range.collapsed) {
