@@ -92,7 +92,7 @@ export async function createNote(data: CreateNoteData): Promise<Note> {
   const database = await initDatabase();
 
   const columns = ['title', 'content', 'category_id'];
-  const values: (string | number | boolean | null)[] = [
+  const values: (string | number | null)[] = [
     data.title,
     data.content,
     data.category_id || null,
@@ -100,12 +100,12 @@ export async function createNote(data: CreateNoteData): Promise<Note> {
 
   if (data.is_pinned) {
     columns.push('is_pinned');
-    values.push(true);
+    values.push(1);
   }
 
   if (data.is_favorited) {
     columns.push('is_favorited');
-    values.push(true);
+    values.push(1);
   }
 
   const placeholders = values.map(() => '?').join(', ');
@@ -140,11 +140,11 @@ export async function updateNote(data: UpdateNoteData): Promise<Note> {
   }
   if (data.is_pinned !== undefined) {
     fields.push("is_pinned = ?");
-    values.push(data.is_pinned);
+    values.push(data.is_pinned ? 1 : 0);
   }
   if (data.is_favorited !== undefined) {
     fields.push("is_favorited = ?");
-    values.push(data.is_favorited);
+    values.push(data.is_favorited ? 1 : 0);
   }
 
   if (fields.length === 0) {
