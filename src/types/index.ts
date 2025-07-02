@@ -14,6 +14,7 @@ export interface Category {
   name: string;
   color: string;
   created_at: string;
+  note_count?: number;
 }
 
 export interface Tag {

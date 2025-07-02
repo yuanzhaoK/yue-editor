@@ -301,9 +301,9 @@ export class BlockManager {
           }
         }
         return item
-      })
+      }) as CardToolbarItem[]
       const embedToolbar = new EmbedToolbar({
-        list: config
+        list: toolbarItems as CardToolbarItem[]
       })
       embedToolbar.root.addClass('daphne-card-toolbar')
       embedToolbar.render(cardBody)

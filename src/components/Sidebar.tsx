@@ -9,19 +9,29 @@ import { AddCategoryDialog } from './AddCategoryDialog';
 import { useNotesStore } from '../store/useNotesStore';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
+import { AddTagDialog } from './AddTagDialog';
 
 export function Sidebar() {
   const {
     categories,
     selectedCategoryId,
+    tags,
+    selectedTagId,
+    isFavoriteFilterActive,
+    isPinnedFilterActive,
     searchKeyword,
     loadCategories,
+    loadTags,
     deleteCategory,
     deleteCategoriesBatch,
     setSelectedCategory,
+    setSelectedTag,
+    toggleFavoriteFilter,
+    togglePinnedFilter,
     setSearchKeyword,
     searchNotes,
     loadNotes,
+    deleteTag,
   } = useNotesStore();
 
   const { sidebarCollapsed } = useAppStore();
@@ -30,10 +40,20 @@ export function Sidebar() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<number>>(new Set());
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [isAddTagDialogOpen, setIsAddTagDialogOpen] = useState(false);
   const searchTimeoutRef = useRef<number>();
+
+  const handleContextMenu = (event: React.MouseEvent, categoryId: number) => {
+    // 阻止默认的浏览器右键菜单
+    event.preventDefault();
+    // 这里可以实现自定义的上下文菜单逻辑
+    // 例如，使用 ContextMenu 组件
+    console.log('Context menu for category:', categoryId);
+  };
 
   useEffect(() => {
     loadCategories();
+    loadTags();
   }, []);
 
   // 防抖搜索
@@ -190,22 +210,18 @@ export function Sidebar() {
         </Button>
         
         <Button
-          variant="ghost"
+          variant={isFavoriteFilterActive ? "secondary" : "ghost"}
           className="w-full justify-start"
-          onClick={() => {
-            // TODO: 实现收藏笔记过滤
-          }}
+          onClick={toggleFavoriteFilter}
         >
           <Star className="mr-2 h-4 w-4" />
           收藏笔记
         </Button>
         
         <Button
-          variant="ghost"
+          variant={isPinnedFilterActive ? "secondary" : "ghost"}
           className="w-full justify-start"
-          onClick={() => {
-            // TODO: 实现置顶笔记过滤
-          }}
+          onClick={togglePinnedFilter}
         >
           <Pin className="mr-2 h-4 w-4" />
           置顶笔记
@@ -215,140 +231,149 @@ export function Sidebar() {
       <Separator />
 
       {/* 分类列表 */}
-      <div className="flex-1 p-4 space-y-1">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-muted-foreground">分类</span>
-          <div className="flex items-center gap-1">
-            {!isSelectionMode && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setIsSelectionMode(true)}
-                  title="多选模式"
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setIsAddCategoryDialogOpen(true)}
-                  title="添加分类"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </>
-            )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm px-4 pt-4 pb-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">分类</span>
+            <div className="flex items-center gap-1">
+              {!isSelectionMode && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setIsSelectionMode(true)}
+                    title="多选模式"
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setIsAddCategoryDialogOpen(true)}
+                    title="添加分类"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* 批量操作工具栏 */}
-        {isSelectionMode && (
-          <div className="bg-muted rounded-md p-2 mb-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+        <div className="p-4 pt-0">
+          {/* 批量操作工具栏 */}
+          {isSelectionMode && (
+            <div className="bg-muted rounded-md p-2 mb-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="h-6 text-xs"
+                  >
+                    {selectedCategoryIds.size === categories.length ? (
+                      <>
+                        <CheckSquare className="h-3 w-3 mr-1" />
+                        取消全选
+                      </>
+                    ) : (
+                      <>
+                        <Square className="h-3 w-3 mr-1" />
+                        全选
+                      </>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    已选择 {selectedCategoryIds.size} 项
+                  </span>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleSelectAll}
+                  onClick={exitSelectionMode}
                   className="h-6 text-xs"
                 >
-                  {selectedCategoryIds.size === categories.length ? (
-                    <>
-                      <CheckSquare className="h-3 w-3 mr-1" />
-                      取消全选
-                    </>
-                  ) : (
-                    <>
-                      <Square className="h-3 w-3 mr-1" />
-                      全选
-                    </>
-                  )}
+                  取消
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  已选择 {selectedCategoryIds.size} 项
-                </span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exitSelectionMode}
-                className="h-6 text-xs"
-              >
-                取消
-              </Button>
+              {selectedCategoryIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBatchDelete}
+                  className="w-full h-6 text-xs"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  删除选中项 ({selectedCategoryIds.size})
+                </Button>
+              )}
             </div>
-            {selectedCategoryIds.size > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBatchDelete}
-                className="w-full h-6 text-xs"
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                删除选中项 ({selectedCategoryIds.size})
-              </Button>
-            )}
-          </div>
-        )}
+          )}
 
-        {categories.map((category) => {
-          const isSelected = selectedCategoryIds.has(category.id);
-          
-          if (isSelectionMode) {
-            return (
-              <div
-                key={category.id}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted",
-                  isSelected && "bg-accent"
-                )}
-                onClick={() => handleToggleSelection(category.id)}
-              >
-                <div className="flex items-center justify-center w-4 h-4">
-                  {isSelected ? (
-                    <CheckSquare className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Square className="h-4 w-4 text-muted-foreground" />
+          {categories.map((category) => {
+            const isSelected = selectedCategoryIds.has(category.id);
+            
+            if (isSelectionMode) {
+              return (
+                <div
+                  key={category.id}
+                  onContextMenu={(e) => handleContextMenu(e, category.id)}
+                  className={cn(
+                    "flex items-center p-2 rounded-md cursor-pointer hover:bg-accent",
+                    isSelected && "bg-accent"
                   )}
+                  onClick={() => !isSelectionMode && handleCategorySelect(category.id)}
+                >
+                  {isSelectionMode && (
+                    <div onClick={(e) => { e.stopPropagation(); handleToggleSelection(category.id); }}>
+                      {selectedCategoryIds.has(category.id) ? (
+                        <CheckSquare className="h-4 w-4 mr-2 text-primary" />
+                      ) : (
+                        <Square className="h-4 w-4 mr-2 text-muted-foreground" />
+                      )}
+                    </div>
+                  )}
+                  <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: category.color }} />
+                  <span className="text-sm flex-1">{category.name}</span>
                 </div>
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: category.color }}
-                />
-                <span className="text-sm flex-1">{category.name}</span>
-              </div>
-            );
-          }
+              );
+            }
 
-          return (
-            <ContextMenu
-              key={category.id}
-              items={[
-                {
-                  label: '删除分类',
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onClick: () => handleDeleteCategory(category.id),
-                  destructive: true,
-                },
-              ]}
-            >
-              <Button
-                variant={selectedCategoryId === category.id ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => handleCategorySelect(category.id)}
+            return (
+              <ContextMenu
+                key={category.id}
+                items={[
+                  {
+                    label: '删除分类',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: () => handleDeleteCategory(category.id),
+                    destructive: true,
+                  },
+                ]}
               >
-                <div
-                  className="mr-2 w-3 h-3 rounded-full"
-                  style={{ backgroundColor: category.color }}
-                />
-                {category.name}
-              </Button>
-            </ContextMenu>
-          );
-        })}
+                <Button
+                  variant={selectedCategoryId === category.id ? "secondary" : "ghost"}
+                  className="w-full justify-start h-8"
+                  onClick={() => handleCategorySelect(category.id)}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center flex-1 min-w-0">
+                      <div
+                        className="mr-2 w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span className="truncate flex-1">{category.name}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground ml-2">{category.note_count}</span>
+                  </div>
+                </Button>
+              </ContextMenu>
+            );
+          })}
+        </div>
       </div>
 
       <Separator />
@@ -361,20 +386,47 @@ export function Sidebar() {
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            onClick={() => {
-              // TODO: 实现添加标签
-            }}
+            onClick={() => setIsAddTagDialogOpen(true)}
           >
             <Plus className="h-3 w-3" />
           </Button>
         </div>
         
         <div className="flex flex-wrap gap-1">
-          {/* TODO: 显示标签列表 */}
-          <Button variant="outline" size="sm" className="h-6 text-xs">
-            <Hash className="mr-1 h-3 w-3" />
-            示例标签
-          </Button>
+          {tags.map((tag) => (
+            <ContextMenu
+              key={tag.id}
+              items={[
+                {
+                  label: '删除标签',
+                  icon: <Trash2 className="h-4 w-4" />,
+                  onClick: () => {
+                    showAlert({
+                      title: '删除标签',
+                      message: `确定要删除 "${tag.name}" 标签吗？`,
+                      confirmText: '删除',
+                      destructive: true,
+                      onConfirm: () => deleteTag(tag.id),
+                    });
+                  },
+                  destructive: true,
+                },
+              ]}
+            >
+              <Button 
+                variant={selectedTagId === tag.id ? "secondary" : "outline"} 
+                size="sm" 
+                className="h-6 text-xs"
+                onClick={() => setSelectedTag(tag.id)}
+              >
+                <span 
+                  className="w-2 h-2 rounded-full mr-2" 
+                  style={{ backgroundColor: tag.color }}
+                />
+                {tag.name}
+              </Button>
+            </ContextMenu>
+          ))}
         </div>
       </div>
 
@@ -382,6 +434,11 @@ export function Sidebar() {
       <AddCategoryDialog
         isOpen={isAddCategoryDialogOpen}
         onClose={() => setIsAddCategoryDialogOpen(false)}
+      />
+      {/* 添加标签对话框 */}
+      <AddTagDialog
+        isOpen={isAddTagDialogOpen}
+        onClose={() => setIsAddTagDialogOpen(false)}
       />
     </div>
   );

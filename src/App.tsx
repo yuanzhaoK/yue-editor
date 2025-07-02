@@ -11,11 +11,12 @@ import { AlertDialogProvider } from './components/ui/alert-dialog';
 import { useAppStore } from './store/useAppStore';
 import { useNotesStore } from './store/useNotesStore';
 import { initDatabase } from './lib/database';
+import { ContextMenuProvider } from './components/ui/context-menu';
 
 function App() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
-  const { applyTheme } = useAppStore();
+  const { applyTheme, theme } = useAppStore();
   const { loadCategories, loadNotes, createNote } = useNotesStore();
 
   useEffect(() => {
@@ -30,7 +31,7 @@ function App() {
     return () => {
       mediaQuery.removeEventListener('change', handleThemeChange);
     };
-  }, []); // 移除依赖项，避免重复执行
+  }, [theme]);
 
   useEffect(() => {
     // 初始化数据库和数据
@@ -97,40 +98,42 @@ function App() {
 
   return (
     <AlertDialogProvider>
-      <div className="h-screen w-screen flex flex-col bg-background text-foreground overflow-hidden">
-        {/* 自定义标题栏 */}
-        <TitleBar 
-          onExportClick={() => setIsExportOpen(true)} 
-          onShortcutsClick={() => setIsShortcutsOpen(true)}
-        />
-        
-        {/* 主要内容区域 */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* 侧边栏 */}
-          <Sidebar />
+      <ContextMenuProvider>
+        <div className="h-screen w-screen flex flex-col bg-background text-foreground overflow-hidden">
+          {/* 自定义标题栏 */}
+          <TitleBar 
+            onExportClick={() => setIsExportOpen(true)} 
+            onShortcutsClick={() => setIsShortcutsOpen(true)}
+          />
           
-          {/* 笔记列表 */}
-          <NoteList />
-          
-          {/* 编辑器 */}
-          <NoteEditor />
-        </div>
+          {/* 主要内容区域 */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* 侧边栏 */}
+            <Sidebar />
+            
+            {/* 笔记列表 */}
+            <NoteList />
+            
+            {/* 编辑器 */}
+            <NoteEditor />
+          </div>
 
-        {/* 设置对话框 */}
-        <SettingsDialog />
-        
-        {/* 导出对话框 */}
-        <ExportDialog 
-          isOpen={isExportOpen} 
-          onClose={() => setIsExportOpen(false)} 
-        />
-        
-        {/* 快捷键帮助对话框 */}
-        <ShortcutsDialog 
-          isOpen={isShortcutsOpen} 
-          onClose={() => setIsShortcutsOpen(false)} 
-        />
-      </div>
+          {/* 设置对话框 */}
+          <SettingsDialog />
+          
+          {/* 导出对话框 */}
+          <ExportDialog 
+            isOpen={isExportOpen} 
+            onClose={() => setIsExportOpen(false)} 
+          />
+          
+          {/* 快捷键帮助对话框 */}
+          <ShortcutsDialog 
+            isOpen={isShortcutsOpen} 
+            onClose={() => setIsShortcutsOpen(false)} 
+          />
+        </div>
+      </ContextMenuProvider>
     </AlertDialogProvider>
   );
 }

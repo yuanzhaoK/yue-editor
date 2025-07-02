@@ -1,6 +1,14 @@
 import { create } from 'zustand';
-import { Note, Category, Tag, CreateNoteData, UpdateNoteData, CreateCategoryData } from '../types';
+import { Note, Category, Tag, CreateNoteData, UpdateNoteData, CreateCategoryData, CreateTagData } from '../types';
 import * as db from '../lib/database';
+
+// Mirroring the interface from database.ts to avoid circular dependencies
+interface GetNotesFilters {
+  categoryId?: number;
+  tagId?: number;
+  isFavorite?: boolean;
+  isPinned?: boolean;
+}
 
 interface NotesState {
   // 数据状态
@@ -11,15 +19,18 @@ interface NotesState {
   
   // UI状态
   selectedCategoryId: number | null;
+  selectedTagId: number | null;
   searchKeyword: string;
   isLoading: boolean;
+  isFavoriteFilterActive: boolean;
+  isPinnedFilterActive: boolean;
   
   // 编辑器状态
   isEditing: boolean;
   hasUnsavedChanges: boolean;
   
   // Actions
-  loadNotes: (categoryId?: number) => Promise<void>;
+  loadNotes: () => Promise<void>;
   loadCategories: () => Promise<void>;
   loadTags: () => Promise<void>;
   createNote: (data: CreateNoteData) => Promise<Note>;
@@ -28,14 +39,19 @@ interface NotesState {
   createCategory: (data: CreateCategoryData) => Promise<Category>;
   deleteCategory: (id: number) => Promise<void>;
   deleteCategoriesBatch: (ids: number[]) => Promise<void>;
+  createTag: (data: CreateTagData) => Promise<Tag>;
+  deleteTag: (id: number) => Promise<void>;
   searchNotes: (keyword: string) => Promise<void>;
   setCurrentNote: (note: Note | null) => void;
   setSelectedCategory: (categoryId: number | null) => void;
+  setSelectedTag: (tagId: number | null) => void;
   setSearchKeyword: (keyword: string) => void;
   setIsEditing: (editing: boolean) => void;
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   toggleNotePinned: (id: number) => Promise<void>;
   toggleNoteFavorited: (id: number) => Promise<void>;
+  toggleFavoriteFilter: () => void;
+  togglePinnedFilter: () => void;
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
@@ -45,16 +61,25 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   tags: [],
   currentNote: null,
   selectedCategoryId: null,
+  selectedTagId: null,
   searchKeyword: '',
   isLoading: false,
+  isFavoriteFilterActive: false,
+  isPinnedFilterActive: false,
   isEditing: false,
   hasUnsavedChanges: false,
 
   // Actions
-  loadNotes: async (categoryId) => {
+  loadNotes: async () => {
     try {
       set({ isLoading: true });
-      const notes = await db.getNotes(categoryId);
+      const { selectedCategoryId, selectedTagId, isFavoriteFilterActive, isPinnedFilterActive } = get();
+      const notes = await db.getNotes({
+        categoryId: selectedCategoryId ?? undefined,
+        tagId: selectedTagId ?? undefined,
+        isFavorite: isFavoriteFilterActive,
+        isPinned: isPinnedFilterActive,
+      });
       set({ notes, isLoading: false });
     } catch (error) {
       // 静默处理错误
@@ -89,6 +114,18 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set({ tags });
     } catch (error) {
       // 静默处理错误
+    }
+  },
+
+  createTag: async (data) => {
+    try {
+      const newTag = await db.createTag(data);
+      const { tags } = get();
+      set({ tags: [...tags, newTag] });
+      return newTag;
+    } catch (error) {
+      // 静默处理错误
+      throw error;
     }
   },
 
@@ -182,6 +219,24 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     }
   },
 
+  deleteTag: async (id) => {
+    try {
+      await db.deleteTag(id);
+      const { tags, selectedTagId } = get();
+      const updatedTags = tags.filter(tag => tag.id !== id);
+      set({ tags: updatedTags });
+      
+      // 如果删除的是当前选中的标签，取消选中并重新加载笔记
+      if (selectedTagId === id) {
+        set({ selectedTagId: null });
+        get().loadNotes();
+      }
+    } catch (error) {
+      // 静默处理错误
+      throw error;
+    }
+  },
+
   searchNotes: async (keyword) => {
     try {
       set({ isLoading: true, searchKeyword: keyword });
@@ -189,10 +244,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         const notes = await db.searchNotes(keyword);
         set({ notes, isLoading: false });
       } else {
-        // 如果搜索关键词为空，重新加载所有笔记
-        const { selectedCategoryId } = get();
-        const notes = await db.getNotes(selectedCategoryId || undefined);
-        set({ notes, isLoading: false });
+        get().loadNotes();
       }
     } catch (error) {
       // 静默处理错误
@@ -205,9 +257,23 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   setSelectedCategory: (categoryId) => {
-    set({ selectedCategoryId: categoryId });
-    // 重新加载笔记
-    get().loadNotes(categoryId || undefined);
+    set({ 
+      selectedCategoryId: categoryId,
+      selectedTagId: null,
+      isFavoriteFilterActive: false,
+      isPinnedFilterActive: false,
+    });
+    get().loadNotes();
+  },
+
+  setSelectedTag: (tagId) => {
+    set({ 
+      selectedTagId: tagId,
+      selectedCategoryId: null,
+      isFavoriteFilterActive: false,
+      isPinnedFilterActive: false,
+    });
+    get().loadNotes();
   },
 
   setSearchKeyword: (keyword) => {
@@ -224,10 +290,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   toggleNotePinned: async (id) => {
     try {
-      const { notes } = get();
-      const note = notes.find(n => n.id === id);
+      const note = get().notes.find(n => n.id === id);
       if (note) {
-        await get().updateNote({ id, is_pinned: !note.is_pinned });
+        const updatedNote = await db.updateNote({ id, is_pinned: !note.is_pinned });
+        set((state) => ({
+          currentNote: state.currentNote?.id === id ? updatedNote : state.currentNote,
+        }));
+        await get().loadNotes();
       }
     } catch (error) {
       // 静默处理错误
@@ -236,13 +305,45 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   toggleNoteFavorited: async (id) => {
     try {
-      const { notes } = get();
-      const note = notes.find(n => n.id === id);
+      const note = get().notes.find(n => n.id === id);
       if (note) {
-        await get().updateNote({ id, is_favorited: !note.is_favorited });
+        const updatedNote = await db.updateNote({ id, is_favorited: !note.is_favorited });
+        set((state) => ({
+          currentNote: state.currentNote?.id === id ? updatedNote : state.currentNote,
+        }));
+        await get().loadNotes();
       }
     } catch (error) {
       // 静默处理错误
     }
   },
-})); 
+
+  toggleFavoriteFilter: () => {
+    set((state) => ({ 
+      isFavoriteFilterActive: !state.isFavoriteFilterActive,
+      isPinnedFilterActive: false,
+      selectedCategoryId: null,
+      selectedTagId: null,
+      searchKeyword: ''
+    }));
+    get().loadNotes();
+  },
+
+  togglePinnedFilter: () => {
+    set((state) => ({ 
+      isPinnedFilterActive: !state.isPinnedFilterActive,
+      isFavoriteFilterActive: false,
+      selectedCategoryId: null,
+      selectedTagId: null,
+      searchKeyword: ''
+    }));
+    get().loadNotes();
+  },
+}));
+
+interface GetNotesFilters {
+  categoryId?: number;
+  tagId?: number;
+  isFavorite?: boolean;
+  isPinned?: boolean;
+} 

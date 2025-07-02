@@ -1,14 +1,22 @@
-import Database from '@tauri-apps/plugin-sql';
-import { Note, Category, Tag, CreateNoteData, UpdateNoteData, CreateCategoryData, CreateTagData } from '../types';
-import { appDataDir } from '@tauri-apps/api/path';
-import { join } from '@tauri-apps/api/path';
+import Database from "@tauri-apps/plugin-sql";
+import {
+  Note,
+  Category,
+  Tag,
+  CreateNoteData,
+  UpdateNoteData,
+  CreateCategoryData,
+  CreateTagData,
+} from "../types";
+import { appDataDir } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 
 let db: Database | null = null;
 
 export async function initDatabase(): Promise<Database> {
+  const appData = await appDataDir();
   if (!db) {
-    const appData = await appDataDir();
-    const dbPath = await join(appData, 'notes.db');
+    const dbPath = await join(appData, "notes.db");
     db = await Database.load(`sqlite:${dbPath}`);
     await createTables();
   }
@@ -17,7 +25,7 @@ export async function initDatabase(): Promise<Database> {
 
 async function createTables() {
   if (!db) return;
-  
+
   // 创建分类表
   await db.execute(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -65,15 +73,15 @@ async function createTables() {
 
   // 创建默认分类
   const defaultCategories = [
-    { name: '默认', color: '#3B82F6' },
-    { name: '工作', color: '#10B981' },
-    { name: '个人', color: '#F59E0B' },
-    { name: '学习', color: '#8B5CF6' }
+    { name: "默认", color: "#3B82F6" },
+    { name: "工作", color: "#10B981" },
+    { name: "个人", color: "#F59E0B" },
+    { name: "学习", color: "#8B5CF6" },
   ];
 
   for (const category of defaultCategories) {
     await db.execute(
-      'INSERT OR IGNORE INTO categories (name, color) VALUES (?, ?)',
+      "INSERT OR IGNORE INTO categories (name, color) VALUES (?, ?)",
       [category.name, category.color]
     );
   }
@@ -82,14 +90,33 @@ async function createTables() {
 // 笔记相关操作
 export async function createNote(data: CreateNoteData): Promise<Note> {
   const database = await initDatabase();
+
+  const columns = ['title', 'content', 'category_id'];
+  const values: (string | number | boolean | null)[] = [
+    data.title,
+    data.content,
+    data.category_id || null,
+  ];
+
+  if (data.is_pinned) {
+    columns.push('is_pinned');
+    values.push(true);
+  }
+
+  if (data.is_favorited) {
+    columns.push('is_favorited');
+    values.push(true);
+  }
+
+  const placeholders = values.map(() => '?').join(', ');
+
   await database.execute(
-    `INSERT INTO notes (title, content, category_id, is_pinned, is_favorited) 
-     VALUES (?, ?, ?, ?, ?)`,
-    [data.title, data.content, data.category_id || null, data.is_pinned || false, data.is_favorited || false]
+    `INSERT INTO notes (${columns.join(', ')}) VALUES (${placeholders})`,
+    values
   );
-  
+
   const result = await database.select<Note[]>(
-    'SELECT * FROM notes ORDER BY id DESC LIMIT 1'
+    "SELECT * FROM notes ORDER BY id DESC LIMIT 1"
   );
   return result[0];
 }
@@ -98,57 +125,92 @@ export async function updateNote(data: UpdateNoteData): Promise<Note> {
   const database = await initDatabase();
   const fields = [];
   const values = [];
-  
+
   if (data.title !== undefined) {
-    fields.push('title = ?');
+    fields.push("title = ?");
     values.push(data.title);
   }
   if (data.content !== undefined) {
-    fields.push('content = ?');
+    fields.push("content = ?");
     values.push(data.content);
   }
   if (data.category_id !== undefined) {
-    fields.push('category_id = ?');
+    fields.push("category_id = ?");
     values.push(data.category_id);
   }
   if (data.is_pinned !== undefined) {
-    fields.push('is_pinned = ?');
+    fields.push("is_pinned = ?");
     values.push(data.is_pinned);
   }
   if (data.is_favorited !== undefined) {
-    fields.push('is_favorited = ?');
+    fields.push("is_favorited = ?");
     values.push(data.is_favorited);
   }
-  
-  fields.push('updated_at = CURRENT_TIMESTAMP');
-  values.push(data.id);
-  
+
+  if (fields.length === 0) {
+    // Nothing to update
+    return (await database.select<Note[]>('SELECT * FROM notes WHERE id = ?', [data.id]))[0];
+  }
+
+  fields.push("updated_at = CURRENT_TIMESTAMP");
+
   await database.execute(
-    `UPDATE notes SET ${fields.join(', ')} WHERE id = ?`,
-    values
+    `UPDATE notes SET ${fields.join(", ")} WHERE id = ?`,
+    [...values, data.id]
   );
-  
-  const result = await database.select<Note[]>('SELECT * FROM notes WHERE id = ?', [data.id]);
+
+  const result = await database.select<Note[]>(
+    "SELECT * FROM notes WHERE id = ?",
+    [data.id]
+  );
   return result[0];
 }
 
 export async function deleteNote(id: number): Promise<void> {
   const database = await initDatabase();
-  await database.execute('DELETE FROM notes WHERE id = ?', [id]);
+  await database.execute("DELETE FROM notes WHERE id = ?", [id]);
 }
 
-export async function getNotes(categoryId?: number): Promise<Note[]> {
+interface GetNotesFilters {
+  categoryId?: number;
+  tagId?: number;
+  isFavorite?: boolean;
+  isPinned?: boolean;
+}
+
+export async function getNotes(filters: GetNotesFilters = {}): Promise<Note[]> {
   const database = await initDatabase();
-  let query = 'SELECT * FROM notes';
+  let query = "SELECT DISTINCT n.* FROM notes n";
   const params: any[] = [];
-  
+  const whereClauses: string[] = [];
+
+  const { categoryId, tagId, isFavorite, isPinned } = filters;
+
+  if (tagId) {
+    query += " INNER JOIN note_tags nt ON n.id = nt.note_id";
+    whereClauses.push("nt.tag_id = ?");
+    params.push(tagId);
+  }
+
   if (categoryId) {
-    query += ' WHERE category_id = ?';
+    whereClauses.push("n.category_id = ?");
     params.push(categoryId);
   }
-  
-  query += ' ORDER BY is_pinned DESC, updated_at DESC';
-  
+
+  if (isFavorite) {
+    whereClauses.push("n.is_favorited = TRUE");
+  }
+
+  if (isPinned) {
+    whereClauses.push("n.is_pinned = TRUE");
+  }
+
+  if (whereClauses.length > 0) {
+    query += " WHERE " + whereClauses.join(" AND ");
+  }
+
+  query += " ORDER BY n.is_pinned DESC, n.updated_at DESC";
+
   const result = await database.select<Note[]>(query, params);
   return result;
 }
@@ -156,85 +218,109 @@ export async function getNotes(categoryId?: number): Promise<Note[]> {
 export async function searchNotes(keyword: string): Promise<Note[]> {
   const database = await initDatabase();
   const result = await database.select<Note[]>(
-    'SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC',
+    "SELECT * FROM notes WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC",
     [`%${keyword}%`, `%${keyword}%`]
   );
   return result;
 }
 
 // 分类相关操作
-export async function createCategory(data: CreateCategoryData): Promise<Category> {
+export async function createCategory(
+  data: CreateCategoryData
+): Promise<Category> {
+  debugger;
   const database = await initDatabase();
-  await database.execute(
-    'INSERT INTO categories (name, color) VALUES (?, ?)',
-    [data.name, data.color]
-  );
-  
+  await database.execute("INSERT INTO categories (name, color) VALUES (?, ?)", [
+    data.name,
+    data.color,
+  ]);
+
   const result = await database.select<Category[]>(
-    'SELECT * FROM categories ORDER BY id DESC LIMIT 1'
+    "SELECT * FROM categories ORDER BY id DESC LIMIT 1"
   );
   return result[0];
 }
 
 export async function getCategories(): Promise<Category[]> {
   const database = await initDatabase();
-  const result = await database.select<Category[]>('SELECT * FROM categories ORDER BY created_at ASC');
+  const result = await database.select<Category[]>(
+    "SELECT * FROM categories ORDER BY created_at ASC"
+  );
   return result;
 }
 
 export async function deleteCategory(id: number): Promise<void> {
   const database = await initDatabase();
-  await database.execute('DELETE FROM categories WHERE id = ?', [id]);
+  await database.execute("DELETE FROM categories WHERE id = ?", [id]);
 }
 
 export async function deleteCategoriesBatch(ids: number[]): Promise<void> {
   const database = await initDatabase();
-  const placeholders = ids.map(() => '?').join(',');
-  await database.execute(`DELETE FROM categories WHERE id IN (${placeholders})`, ids);
+  const placeholders = ids.map(() => "?").join(",");
+  await database.execute(
+    `DELETE FROM categories WHERE id IN (${placeholders})`,
+    ids
+  );
 }
 
 // 标签相关操作
 export async function createTag(data: CreateTagData): Promise<Tag> {
   const database = await initDatabase();
-  await database.execute(
-    'INSERT INTO tags (name, color) VALUES (?, ?)',
-    [data.name, data.color]
-  );
-  
+  await database.execute("INSERT INTO tags (name, color) VALUES (?, ?)", [
+    data.name,
+    data.color,
+  ]);
+
   const result = await database.select<Tag[]>(
-    'SELECT * FROM tags ORDER BY id DESC LIMIT 1'
+    "SELECT * FROM tags ORDER BY id DESC LIMIT 1"
   );
   return result[0];
 }
 
 export async function getTags(): Promise<Tag[]> {
   const database = await initDatabase();
-  const result = await database.select<Tag[]>('SELECT * FROM tags ORDER BY name ASC');
+  const result = await database.select<Tag[]>(
+    "SELECT * FROM tags ORDER BY name ASC"
+  );
   return result;
 }
 
-export async function addTagToNote(noteId: number, tagId: number): Promise<void> {
+export async function deleteTag(id: number): Promise<void> {
+  const database = await initDatabase();
+  await database.execute("DELETE FROM tags WHERE id = ?", [id]);
+}
+
+export async function addTagToNote(
+  noteId: number,
+  tagId: number
+): Promise<void> {
   const database = await initDatabase();
   await database.execute(
-    'INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)',
+    "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)",
     [noteId, tagId]
   );
 }
 
-export async function removeTagFromNote(noteId: number, tagId: number): Promise<void> {
+export async function removeTagFromNote(
+  noteId: number,
+  tagId: number
+): Promise<void> {
   const database = await initDatabase();
   await database.execute(
-    'DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?',
+    "DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?",
     [noteId, tagId]
   );
 }
 
 export async function getNoteTags(noteId: number): Promise<Tag[]> {
   const database = await initDatabase();
-  const result = await database.select<Tag[]>(`
+  const result = await database.select<Tag[]>(
+    `
     SELECT t.* FROM tags t
     JOIN note_tags nt ON t.id = nt.tag_id
     WHERE nt.note_id = ?
-  `, [noteId]);
+  `,
+    [noteId]
+  );
   return result;
-} 
+}

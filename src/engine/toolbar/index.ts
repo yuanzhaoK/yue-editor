@@ -10,7 +10,7 @@ class EmbedToolbar {
 
   public root: NodeModel
   
-  constructor({ list }: { list: CardToolbarItemConfig[] }) {
+  constructor({ list }: { list: CardToolbarItem[] }) {
     this.list = list
     this.root = getNodeModel(this.template)
   }

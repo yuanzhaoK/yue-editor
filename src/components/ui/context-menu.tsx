@@ -1,118 +1,84 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
 
-interface ContextMenuItem {
+interface MenuItem {
   label: string;
   icon?: React.ReactNode;
   onClick: () => void;
-  disabled?: boolean;
   destructive?: boolean;
-}
-
-interface ContextMenuProps {
-  children: React.ReactNode;
-  items: ContextMenuItem[];
-  disabled?: boolean;
 }
 
 interface ContextMenuState {
   isOpen: boolean;
-  x: number;
-  y: number;
+  position: { x: number; y: number };
+  items: MenuItem[];
 }
 
-const ContextMenuContext = createContext<{
-  state: ContextMenuState;
-  setState: React.Dispatch<React.SetStateAction<ContextMenuState>>;
-} | null>(null);
+interface ContextMenuContextType {
+  showMenu: (x: number, y: number, items: MenuItem[]) => void;
+  hideMenu: () => void;
+}
 
-export function ContextMenu({ children, items, disabled }: ContextMenuProps) {
-  const [state, setState] = useState<ContextMenuState>({
+const ContextMenuContext = createContext<ContextMenuContextType | null>(null);
+
+export function ContextMenuProvider({ children }: { children: React.ReactNode }) {
+  const [menu, setMenu] = useState<ContextMenuState>({
     isOpen: false,
-    x: 0,
-    y: 0,
+    position: { x: 0, y: 0 },
+    items: [],
   });
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleContextMenu = (event: React.MouseEvent) => {
-    if (disabled) return;
-    
-    event.preventDefault();
-    setState({
-      isOpen: true,
-      x: event.clientX,
-      y: event.clientY,
-    });
-  };
+  const showMenu = useCallback((x: number, y: number, items: MenuItem[]) => {
+    setMenu({ isOpen: true, position: { x, y }, items });
+  }, []);
 
-  const handleClose = () => {
-    setState(prev => ({ ...prev, isOpen: false }));
-  };
+  const hideMenu = useCallback(() => {
+    setMenu(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        handleClose();
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menu.isOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        hideMenu();
       }
     };
-
-    const handleEscape = (event: KeyboardEvent) => {
+    
+    const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleClose();
+        hideMenu();
       }
     };
 
-    if (state.isOpen) {
-      document.addEventListener('click', handleClick);
-      document.addEventListener('keydown', handleEscape);
-    }
-
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
     return () => {
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
     };
-  }, [state.isOpen]);
+  }, [menu.isOpen, hideMenu]);
 
   return (
-    <ContextMenuContext.Provider value={{ state, setState }}>
-      <div onContextMenu={handleContextMenu}>
-        {children}
-      </div>
-      
-      {state.isOpen && (
+    <ContextMenuContext.Provider value={{ showMenu, hideMenu }}>
+      {children}
+      {menu.isOpen && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-          style={{
-            left: state.x,
-            top: state.y,
-          }}
+          className="fixed z-50 w-48 bg-background border border-border rounded-md shadow-lg p-1"
+          style={{ top: menu.position.y, left: menu.position.x }}
+          onClick={hideMenu} // Hide menu after a click inside it
         >
-          {items.map((item, index) => (
+          {menu.items.map((item, index) => (
             <div
               key={index}
+              onClick={item.onClick}
               className={cn(
-                "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
-                item.disabled
-                  ? "pointer-events-none opacity-50"
-                  : item.destructive
-                  ? "text-red-600 focus:bg-red-100 focus:text-red-600 hover:bg-red-100"
-                  : "focus:bg-accent focus:text-accent-foreground hover:bg-accent",
-                !item.disabled && "cursor-pointer"
+                "flex items-center px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent",
+                item.destructive ? "text-destructive hover:bg-destructive/10" : "text-foreground"
               )}
-              onClick={() => {
-                if (!item.disabled) {
-                  item.onClick();
-                  handleClose();
-                }
-              }}
             >
-              {item.icon && (
-                <span className="mr-2 h-4 w-4">
-                  {item.icon}
-                </span>
-              )}
-              {item.label}
+              {item.icon && <div className="mr-2 h-4 w-4">{item.icon}</div>}
+              <span>{item.label}</span>
             </div>
           ))}
         </div>
@@ -121,10 +87,31 @@ export function ContextMenu({ children, items, disabled }: ContextMenuProps) {
   );
 }
 
-export function useContextMenu() {
+export const useContextMenu = () => {
   const context = useContext(ContextMenuContext);
   if (!context) {
-    throw new Error('useContextMenu must be used within a ContextMenu');
+    throw new Error('useContextMenu must be used within a ContextMenuProvider');
   }
   return context;
+};
+
+interface ContextMenuProps {
+  items: MenuItem[];
+  children: React.ReactNode;
+}
+
+export function ContextMenu({ items, children }: ContextMenuProps) {
+  const { showMenu } = useContextMenu();
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showMenu(e.clientX, e.clientY, items);
+  };
+
+  return (
+    <div onContextMenu={handleContextMenu}>
+      {children}
+    </div>
+  );
 } 
