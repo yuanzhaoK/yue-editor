@@ -12,32 +12,38 @@ import { appDataDir } from "@tauri-apps/api/path";
 import { join } from "@tauri-apps/api/path";
 
 let db: Database | null = null;
+let dbPromise: Promise<Database> | null = null;
 
-export async function initDatabase(): Promise<Database> {
+async function _initDatabase(): Promise<Database> {
   const appData = await appDataDir();
-  if (!db) {
-    const dbPath = await join(appData, "notes.db");
-    db = await Database.load(`sqlite:${dbPath}`);
-    await createTables();
-  }
+  const dbPath = await join(appData, "notes.db");
+  const newDb = await Database.load(`sqlite:${dbPath}`);
+  await createTables(newDb);
+  db = newDb;
   return db;
 }
 
-async function createTables() {
-  if (!db) return;
+export function initDatabase(): Promise<Database> {
+  if (dbPromise) {
+    return dbPromise;
+  }
+  dbPromise = _initDatabase();
+  return dbPromise;
+}
 
+async function createTables(database: Database) {
   // 创建分类表
-  await db.execute(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
+      name TEXT NOT NULL UNIQUE,
       color TEXT NOT NULL DEFAULT '#3B82F6',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // 创建标签表
-  await db.execute(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS tags (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -46,7 +52,7 @@ async function createTables() {
   `);
 
   // 创建笔记表
-  await db.execute(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -61,7 +67,7 @@ async function createTables() {
   `);
 
   // 创建笔记标签关联表
-  await db.execute(`
+  await database.execute(`
     CREATE TABLE IF NOT EXISTS note_tags (
       note_id INTEGER,
       tag_id INTEGER,
@@ -71,19 +77,25 @@ async function createTables() {
     )
   `);
 
-  // 创建默认分类
-  const defaultCategories = [
-    { name: "默认", color: "#3B82F6" },
-    { name: "工作", color: "#10B981" },
-    { name: "个人", color: "#F59E0B" },
-    { name: "学习", color: "#8B5CF6" },
-  ];
+  // 检查是否需要插入默认分类
+  const result = await database.select<any[]>("SELECT COUNT(*) as count FROM categories");
+  const categoryCount = result[0].count;
 
-  for (const category of defaultCategories) {
-    await db.execute(
-      "INSERT OR IGNORE INTO categories (name, color) VALUES (?, ?)",
-      [category.name, category.color]
-    );
+  if (categoryCount === 0) {
+    // 创建默认分类
+    const defaultCategories = [
+      { name: "默认", color: "#3B82F6" },
+      { name: "工作", color: "#10B981" },
+      { name: "个人", color: "#F59E0B" },
+      { name: "学习", color: "#8B5CF6" },
+    ];
+
+    for (const category of defaultCategories) {
+      await database.execute(
+        "INSERT OR IGNORE INTO categories (name, color) VALUES (?, ?)",
+        [category.name, category.color]
+      );
+    }
   }
 }
 
