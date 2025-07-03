@@ -50,7 +50,7 @@ const maximizeHeaderTemplate = (config: any) => `
 </div>
 `
 
-export const getCardRoot = (node: Node) => {
+export const getCardRoot = (node: Node | NodeModel) => {
   let nodeCopy = getNodeModel(node)
   while (nodeCopy) {
     if (nodeCopy.isRoot())
@@ -408,7 +408,7 @@ export class BlockManager {
   }
 
   // 向上寻找卡片根节点
-  closest(node: Node) {
+  closest(node: Node | NodeModel) {
     return getCardRoot(node)
   }
 

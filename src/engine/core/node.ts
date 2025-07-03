@@ -2,6 +2,7 @@ import { NodeModelInterface, DOMNode, Selector, EventCallback } from '../types';
 import EventModel from './event';
 import { CARD_TYPE_KEY, BLOCK_TAG_MAP, INLINE_TAG_MAP, ROOT_TAG_MAP, MARK_TAG_MAP, TABLE_TAG_MAP, ROOT_KEY, ROOT, VOID_TAG_MAP, SOLID_TAG_MAP, HEADING_TAG_MAP, TITLE_TAG_MAP, ROOT_SELECTOR } from '../constants';
 import { toCamel } from '../utils/string';
+import { Engine } from './engine';
 
 
 
@@ -166,7 +167,7 @@ export class NodeModel implements NodeModelInterface {
    * @param nodes - 节点或节点数组
    * @param root - 根节点
    */
-  constructor(nodes: Node | Node[], root?: Node) {
+  constructor(nodes: string | Node | Node[], root?: Node, engine?: Engine) {
     this.events = new Map();
     let nodeArray: Node[];
     if (typeof nodes === 'string') {
@@ -181,7 +182,7 @@ export class NodeModel implements NodeModelInterface {
     // 设置节点索引访问
     for (let i = 0; i < nodeArray.length; i++) {
       this[i] = nodeArray[i];
-      this.events.set(i.toString(), new EventModel());
+      this.events.set(i.toString(), new EventModel(engine as Engine));
     }
     this.length = nodeArray.length;
     if (this.length > 0) {

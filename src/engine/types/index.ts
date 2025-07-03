@@ -19,7 +19,7 @@ export type Selector = string;
 /**
  * 事件回调函数类型
  */
-export type EventCallback<T = any> = (data?: T) => void | boolean;
+export type EventCallback<T = any> = (data: T) => void | boolean;
 
 /**
  * 异步事件回调函数类型

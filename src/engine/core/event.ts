@@ -6,6 +6,7 @@
  */
 
 import { EventCallback, AsyncEventCallback } from '../types';
+import { Engine } from './engine';
 
 
 interface EventListener {
@@ -28,8 +29,15 @@ interface EventListener {
  */
 
 export class EventModel {
+
   /** 事件监听器映射 */
   protected listeners: Map<string, EventListener[]> = new Map()
+
+  public readonly engine: Engine;
+
+  constructor(engine: Engine) {
+    this.engine = engine;
+  }
 
   /**
    * 注册事件监听器
@@ -180,6 +188,9 @@ export class EventModel {
 
 
 export class AsyncEventModel extends EventModel {
+  constructor(engine: Engine) {
+    super(engine);
+  }
   /**
      * 触发异步事件
      * @param eventType - 事件类型
@@ -264,13 +275,12 @@ export class AsyncEventModel extends EventModel {
 export class EventBus extends AsyncEventModel {
   private static instance: EventBus;
 
-
   /**
    * 获取单例实例
    */
-  static getInstance(): EventBus {
+  static getInstance(engine: Engine): EventBus {
     if (!EventBus.instance) {
-      EventBus.instance = new EventBus();
+      EventBus.instance = new EventBus(engine);
     }
     return EventBus.instance;
   }
@@ -278,8 +288,8 @@ export class EventBus extends AsyncEventModel {
   /**
   * 私有构造函数，确保单例
   */
-  private constructor() {
-    super();
+  private constructor(engine: Engine) {
+    super(engine);
   }
 
 }
