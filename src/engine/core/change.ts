@@ -135,7 +135,7 @@ export class ChangeManager {
   }
 
   getRange() {
-    throw new Error("Method not implemented.");
+    return this.currentRange;
   }
   insertInline(br: NodeModel) {
     throw new Error("Method not implemented.");
@@ -144,12 +144,22 @@ export class ChangeManager {
     throw new Error("Method not implemented.");
   }
   getValue() {
-    throw new Error("Method not implemented.");
+    return ''
   }
   setValue(value: string) {
     throw new Error("Method not implemented.");
   }
   getSelection() {
     throw new Error("Method not implemented.");
+  } 
+  select(range: RangeInterface) {
+    this.currentRange = range;
+    this.onSelect(range);
+  }
+  getValueAndDOM() {
+    return {
+      value: this.getValue(),
+      dom: this.editArea[0]
+    }
   }
 }
