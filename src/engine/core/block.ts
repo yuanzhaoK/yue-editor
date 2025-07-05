@@ -86,6 +86,15 @@ export const getCardRoot = (node: Node | NodeModel) => {
  * ```
  */
 export class BlockManager {
+  focus(range: RangeInterface, block: NodeModel, arg2: boolean) {
+    throw new Error("Method not implemented.");
+  }
+  showToolbar(cardRoot: NodeModel) {
+    throw new Error("Method not implemented.");
+  }
+  hideToolbar(activeBlock: NodeModel) {
+    throw new Error("Method not implemented.");
+  }
   /** 卡片类映射 */
   private blocks: Map<string, BlockComponentData> = new Map();
 
@@ -170,7 +179,7 @@ export class BlockManager {
     let value = cardRoot.attr(CARD_VALUE_KEY)
     if (!value)
       return null
-    return decodeCardValue(value)
+    return decodeCardValue(value as string)
   }
 
   setToolbar(cfg: BlockConfig) {
@@ -513,5 +522,26 @@ export class BlockManager {
     component.blockRoot = cardRoot
 
     return cardRoot
+  }
+  // 销毁不存在节点的卡片控件
+  public gc() {
+    this.components.forEach((cmp, idx) => {
+      const cardRoot = cmp.node;
+      const component = cmp.component
+
+      if (cardRoot[0] && cardRoot.closest('body').length > 0) {
+        return
+      }
+      this.destroyComponent(component);
+      this.components.delete(idx)
+    })
+  }
+
+  private destroyComponent(component: CardInterface) {
+    throw new Error('Method not implemented.');
+  }
+
+  public render(container, component) {
+
   }
 }

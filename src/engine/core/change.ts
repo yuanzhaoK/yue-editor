@@ -1,8 +1,13 @@
-import { EventCallback, RangeInterface } from "../types";
+import { BlockComponentData, CardType, EventCallback, RangeInterface } from "../types";
+import { getActiveMarks } from "../utils/mark";
+import { getActiveBlocks } from "../utils/block";
 import { getWindow } from "../utils/node";
 import { BlockManager } from "./block";
 import DOMEventManager from "./dom-event";
-import { NodeModel } from "./node";
+import { HistoryManager } from "./history";
+import getNodeModel, { NodeModel } from "./node";
+import { shrinkRange } from "../utils/range";
+import { BRAND, ROOT_SELECTOR } from "../constants";
 
 /**
  * 变更管理器配置选项
@@ -87,6 +92,9 @@ export class ChangeManager {
   /** DOM 事件管理器 */
   public readonly domEvent: DOMEventManager;
 
+  /** 历史管理器 */
+  public readonly history: HistoryManager;
+
   // ========== 状态属性 ==========
 
   /** 当前选区 */
@@ -101,6 +109,8 @@ export class ChangeManager {
   /** 设置值回调 */
   private onSetValue: EventCallback;
 
+
+  private activeBlock: NodeModel | undefined
   /**
    * 构造函数
    * @param editArea - 编辑区域
@@ -116,6 +126,7 @@ export class ChangeManager {
     this.onChange = options.onChange;
     this.onSelect = options.onSelect;
     this.onSetValue = options.onSetValue;
+    this.activeBlock = undefined
 
 
     // 初始化窗口和文档对象
@@ -124,19 +135,66 @@ export class ChangeManager {
 
 
     this.domEvent = new DOMEventManager(this.editArea, this.win);
+    this.history = new HistoryManager(this, {
+      onSave: (value: string) => {
+        const range = this.getRange()
+        const marks = getActiveMarks(range)
+        const blocks = getActiveBlocks(range)
+        this.change(value)
+      }
+    });
 
 
     // 初始化原生事件
     this.initializeNativeEvents();
   }
+  change(value: string) {
+    this.block.gc()
+    this.onChange(value || this.getValue())
+  }
+
+  public getSelectionRange() {
+    const selection = this.win.getSelection()!
+    let range
+    if (selection.rangeCount > 0) {
+      range = selection.getRangeAt(0)
+    } else {
+      range = this.doc.createRange()
+      range.selectNodeContents(this.editArea[0])
+      shrinkRange(range)
+      range.collapse(false)
+    }
+    return range
+  }
 
   private initializeNativeEvents() {
-    throw new Error("Method not implemented.");
+    this.editArea.on('keydown', (e: KeyboardEvent) => {
+      if (this.engine.isReadonly ||
+        this.block.closest(e.target as Node) ||
+        this.history.hasUndo ||
+        this.history.hasRedo) {
+        return;
+      }
+    })
+    // 初始化原生事件
+    this.editArea.on('change', (value: string) => {
+      this.onChange(value);
+    });
+    this.editArea.on('select', (range: RangeInterface) => {
+      this.onSelect(range);
+    });
+    this.editArea.on('set-value', (value: string) => {
+      this.onSetValue(value);
+    });
   }
 
-  getRange() {
-    return this.currentRange;
+  getRange(): RangeInterface {
+    if (this.currentRange) {
+      return this.currentRange
+    }
+    return this.getSelectionRange()
   }
+
   insertInline(br: NodeModel) {
     throw new Error("Method not implemented.");
   }
@@ -151,15 +209,123 @@ export class ChangeManager {
   }
   getSelection() {
     throw new Error("Method not implemented.");
-  } 
-  select(range: RangeInterface) {
-    this.currentRange = range;
-    this.onSelect(range);
   }
+
+  select(range: RangeInterface) {
+    const selection = this.win.getSelection()!
+    selection.removeAllRanges()
+    selection.addRange(range)
+    this.currentRange = range
+    return this
+  }
+
   getValueAndDOM() {
     return {
       value: this.getValue(),
       dom: this.editArea[0]
     }
+  }
+
+  activateBlock(activeNode: Node, triggerType: string) {
+    const activeNodeItem = getNodeModel(activeNode)
+
+    const editArea = activeNodeItem.closest(ROOT_SELECTOR);
+
+    if (!editArea[0] || this.editArea[0] === editArea[0]) {
+      let blockRoot = this.block.closest(activeNode)
+      if (this.block.isLeftCursor(activeNode) || this.block.isRightCursor(activeNode)) {
+        blockRoot = undefined
+      }
+      let isSameCard = blockRoot && this.activeBlock && blockRoot[0] === this.activeBlock[0]
+
+      if (['updateCard'].indexOf(triggerType) >= 0) {
+        isSameCard = false
+      }
+      if (this.activeBlock && !isSameCard) {
+        this.block.hideToolbar(this.activeBlock)
+        const component = this.block.getComponent(this.activeBlock)
+
+        if (component) {
+          if (component.unActivate) {
+            component.blockRoot.removeClass('daphne-activated')
+            component.state.activated = false
+          }
+
+          if ('block' === component.type) {
+            this.engine.readonly(false)
+          }
+        }
+      }
+
+      if (blockRoot) {
+        const component = this.block.getComponent(blockRoot)
+        if (component) {
+          if (component.state.activatedByOther) {
+            return
+          }
+          if (!isSameCard) {
+            this.block.showToolbar(blockRoot)
+            if (component.type === 'inline' && component.autoSelected !== false && (triggerType !== 'click' || component.state && !component.state.readonly)) {
+              this.selectBlock(blockRoot)
+            }
+
+            if (component.activate) {
+              component.blockRoot.addClass("daphne-activated")
+              component.activate(blockRoot)
+              component.state.activated = true
+            }
+
+            if (component.type === 'block') {
+              this.selectComponent(component, false)
+              this.engine.readonly(true)
+            }
+          }
+        }
+      }
+    }
+  }
+  private selectComponent(component: BlockComponentData, selected: boolean) {
+    if (component && component.state.readonly || component.state.activatedByOther) {
+      return
+    }
+    if (selected) {
+      if (!component.state.selected) {
+        component.blockRoot.addClass(`${BRAND}-selected`)
+        if (component.select) {
+          component.select()
+        }
+        component.state.selected = selected
+      }
+    } if (component.state.selected) {
+      component.blockRoot.removeClass("lake-selected")
+      if (component.unSelect) {
+        component.unSelect()
+      }
+      component.state.selected = selected
+    }
+  }
+  
+  selectBlock(root: NodeModel) {
+    const component = this.block.getComponent(root)!
+    const { singleSelectable } = component
+    if (singleSelectable !== false && (component.type !== CardType.BLOCK || !component.state.activated)) {
+      let rootEl = root[0]
+
+      const range = this.getRange()
+      const parentNode = rootEl.parentNode!
+      const nodes = Array.prototype.slice.call(parentNode.childNodes)
+      const index = nodes.indexOf(root)
+      range.setStart(parentNode, index)
+      range.setEnd(parentNode, index + 1)
+      this.select(range)
+    }
+  }
+
+  focusBlok(block: NodeModel) {
+    const range = this.getRange()
+    this.block.focus(range, block, false)
+    this.select(range)
+    this.history.update()
+    this.onSelect(block)
   }
 }

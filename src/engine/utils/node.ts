@@ -32,7 +32,7 @@ export function getDocument(node: Node): Document {
 // 遍历所有子节点
 // return false：停止遍历
 // return true：停止遍历当前节点，下一个兄弟节点继续遍历
-const walkTree = (root: NodeModel, callback: (node: NodeModel) => boolean, order?: boolean) => {
+export const walkTree = (root: NodeModel, callback: (node: NodeModel) => boolean | undefined, order?: boolean) => {
     order = order === undefined ? true : order
     const walk = (node: NodeModel) => {
         let child = order ? node.first()?.[0] : node.last()?.[0]
@@ -398,3 +398,50 @@ export function setTextContent(node: Node, text: string): void {
         (node as Element).textContent = text;
     }
 }
+
+
+
+
+// 对比两个节点的标签
+/**
+ * 对比两个节点的标签
+ * @param node - 节点
+ * @param otherNode - 另一个节点
+ * @returns 是否相等
+ */
+export const equalNode = (node: Node, otherNode: Node) => {
+    let nodeItem = getNodeModel(node)
+    let otherNodeItem = getNodeModel(otherNode)
+
+    if (nodeItem.name !== otherNodeItem.name) {
+        return false
+    }
+
+    const attrs = nodeItem.attr() as Record<string, string | number | boolean>
+    delete attrs.style
+    const otherAttrs = otherNodeItem.attr() as Record<string, string | number | boolean>
+    delete otherAttrs.style
+    const styles = nodeItem.css() as unknown as Record<string, string | number>
+    const otherStyles = otherNodeItem.css() as unknown as Record<string, string | number>
+
+    if (Object.keys(attrs).length === 0 &&
+        Object.keys(otherAttrs).length === 0 &&
+        Object.keys(styles).length === 0 &&
+        Object.keys(otherStyles).length === 0) {
+        return true
+    }
+
+    if (Object.keys(attrs).length !== Object.keys(otherAttrs).length || Object.keys(styles).length !== Object.keys(otherStyles).length) {
+        return false
+    }
+
+    if (Object.keys(attrs).length > 0) {
+        return Object.keys(attrs).some(key => {
+            return otherAttrs[key]
+        })
+    }
+
+    return Object.keys(styles).some((key: string) => {
+        return otherStyles[key]
+    })
+} 

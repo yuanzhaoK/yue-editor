@@ -9,3 +9,5 @@ export * from './conversion';
 export * from './mime';
 export * from './tags';
 export * from './root';
+
+export const BRAND = 'daphne'

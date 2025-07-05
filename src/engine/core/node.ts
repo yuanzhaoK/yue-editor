@@ -1,7 +1,7 @@
 import { NodeModelInterface, DOMNode, Selector, EventCallback } from '../types';
 import EventModel from './event';
 import { CARD_TYPE_KEY, BLOCK_TAG_MAP, INLINE_TAG_MAP, ROOT_TAG_MAP, MARK_TAG_MAP, TABLE_TAG_MAP, ROOT_KEY, ROOT, VOID_TAG_MAP, SOLID_TAG_MAP, HEADING_TAG_MAP, TITLE_TAG_MAP, ROOT_SELECTOR } from '../constants';
-import { toCamel } from '../utils/string';
+import { getAttrMap, toCamel } from '../utils/string';
 import { Engine } from './engine';
 
 
@@ -203,13 +203,20 @@ export class NodeModel implements NodeModelInterface {
   /**
      * 获取或设置属性
      */
-  attr(key: string): string | null;
-  attr(key: string, val: string | number | boolean): NodeModelInterface;
-  attr(attrs: Record<string, string | number | boolean>): NodeModelInterface;
+
   attr(
-    keyOrAttrs: string | Record<string, string | number | boolean>,
+    keyOrAttrs?: string | Record<string, string | number | boolean>,
     val?: string | number | boolean
-  ): string | null | NodeModelInterface {
+  ): string | null | Record<string, string | number | boolean> | NodeModelInterface {
+
+    if (keyOrAttrs === undefined) {
+      const resultNode = this.clone(false)[0];
+      if (resultNode && resultNode.nodeType === Node.ELEMENT_NODE) {
+        return getAttrMap((resultNode as Element).outerHTML) as Record<string, string | number | boolean> | null
+      }
+      return null;
+    }
+
     if (typeof keyOrAttrs === 'object') {
       // 批量设置属性
       this.each((node) => {
@@ -312,11 +319,11 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取或设置样式
    */
-  css(key: string): string;
-  css(key: string, val: string | number): NodeModelInterface;
-  css(styles: Record<string, string | number>): NodeModelInterface;
+  css(key?: string): string;
+  css(key?: string, val?: string | number): NodeModelInterface;
+  css(styles?: Record<string, string | number>): NodeModelInterface;
   css(
-    keyOrStyles: string | Record<string, string | number>,
+    keyOrStyles?: string | Record<string, string | number>,
     val?: string | number
   ): string | NodeModelInterface {
     if (typeof keyOrStyles === 'object') {
@@ -337,7 +344,7 @@ export class NodeModel implements NodeModelInterface {
       this.each((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as HTMLElement;
-          element.style.setProperty(keyOrStyles, String(val));
+          element.style.setProperty(keyOrStyles!, String(val));
         }
       });
       return this as NodeModelInterface;
@@ -349,7 +356,7 @@ export class NodeModel implements NodeModelInterface {
     }
 
     const element = this[0] as Element;
-    return getComputedCss(element, keyOrStyles);
+    return getComputedCss(element, keyOrStyles!);
   }
 
   /**
@@ -567,9 +574,9 @@ export class NodeModel implements NodeModelInterface {
     * 用于清理编辑器生成的字体大小样式
     */
   removeFontSize(): NodeModelInterface {
-    const classValue = this.attr('class');
+    const classValue = this.attr('class') as string;
     if (classValue) {
-      this.attr('class', classValue.replace(/daphne-fontsize-[\d]{1,2}/, ''));
+      this.attr('class', classValue.replace(/daphne-fontsize-[\d]{1,2}/, '')) as NodeModelInterface;
     }
     return this as NodeModelInterface;
   }

@@ -60,10 +60,14 @@ export enum CardType {
   BLOCK = 'block'
 }
 
+export enum BlockType {
+  INLINE = 'inline',
+  BLOCK = 'block'
+}
 /**
  * 卡片状态接口
  */
-export interface CardState {
+export interface BlockState {
   /** 是否只读 */
   readonly: boolean;
 
@@ -530,9 +534,7 @@ export interface NodeModelInterface {
   offset(): { top: number; left: number };
 
   /** 获取或设置属性 */
-  attr(key: string): string | null;
-  attr(key: string, val: string | number | boolean): NodeModelInterface;
-  attr(attrs: Record<string, string | number | boolean>): NodeModelInterface;
+  attr(keyOrAttrs?: string | Record<string, string | number | boolean>, val?: string | number | boolean): string | null | Record<string, string | number | boolean> | NodeModelInterface;
 
   /** 移除属性 */
   removeAttr(key: string): NodeModelInterface;
@@ -549,7 +551,7 @@ export interface NodeModelInterface {
   /** 获取或设置样式 */
   css(key: string): string;
   css(key: string, val: string | number): NodeModelInterface;
-  css(styles: Record<string, string | number>): NodeModelInterface;
+  css(styles?: Record<string, string | number>): NodeModelInterface;
 
   /** 获取宽度 */
   width(): number;
@@ -671,6 +673,16 @@ export interface SidebarInterface {
  * 块组件数据
  */
 export interface BlockComponentData {
+
+  select?: () => void
+
+  unSelect?: () => void
+
+  autoSelected: boolean;
+
+  activate?: (block: NodeModel) => void;
+
+  unActivate?: (block: NodeModel) => void;
   /** 块组件名称 */
   name: string;
   /** 卡片组件实例 */
@@ -689,12 +701,15 @@ export interface BlockComponentData {
 
   container: NodeModel;
 
-  state: CardState;
+  state: BlockState;
 
   hasFocus?: boolean;
 
   /** 是否嵌入工具栏 */
   embedToolbar?: () => CardToolbarItemConfig[];
+
+
+  singleSelectable: boolean
 }
 
 

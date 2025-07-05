@@ -63,7 +63,7 @@ export const getCssMap = (cssText: string): Record<string, string> => {
  * @param attrText - 属性文本
  * @returns 属性映射对象
  */
-export const getAttrMap = (attrText: string): Record<string, string> => {
+export const getAttrMap = (attrText: string): Record<string, string | number | boolean> => {
   const map: Record<string, string> = {};
 
   if (!attrText) return map;
