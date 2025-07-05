@@ -205,7 +205,25 @@ export class ChangeManager {
     return ''
   }
   setValue(value: string) {
-    throw new Error("Method not implemented.");
+    value = value || ''
+    const range = this.getRange()
+
+    if (value === '') {
+      range.setStart(this.editArea[0], 0)
+      range.collapse(true)
+      this.select(range)
+    } else {
+      // const parser = new ParserHtml(value, this.schema, this.conversion, root => {
+      //   fetchAllChildren(root).forEach(node => {
+      //     removeEmptyMarksAndAddBr(getNodeModel(node))
+      //   })
+      // })
+      // this.editArea.html(parser.toLowerValue())
+      // this.card.renderAll(this.editArea, this.engine)
+    }
+
+    this.onSetValue(value)
+    this.history.save(false)
   }
   getSelection() {
     throw new Error("Method not implemented.");
@@ -304,7 +322,7 @@ export class ChangeManager {
       component.state.selected = selected
     }
   }
-  
+
   selectBlock(root: NodeModel) {
     const component = this.block.getComponent(root)!
     const { singleSelectable } = component

@@ -15,7 +15,7 @@ import {
   EventCallback
 } from '../types';
 
-import Block, { BlockManager } from './block'
+import { BlockManager } from './block'
 
 
 // 语言包
@@ -31,9 +31,10 @@ import { createBookmark, moveToBookmark } from '../utils/range';
 import { removeMinusStyle } from '../utils/node';
 import { addOrRemoveBr } from '../utils/block';
 import { ChangeManager } from './change';
+import { HistoryManager } from './history';
 
 
-const block = new Block();
+const block = new BlockManager();
 const setAttributes = () => { }
 const removeAttributes = () => { }
 const clickBottomArea = () => { }
@@ -132,6 +133,9 @@ export class Engine {
     close: () => { },
     restore: () => { }
   };
+  schema: any;
+  conversion: any;
+  history: HistoryManager;
   /**
  * 构造函数
  * @param container - 编辑器容器，可以是选择器字符串或 DOM 元素
@@ -165,6 +169,7 @@ export class Engine {
       onSelect: () => this.event.trigger('select'),
       onSetValue: () => this.event.trigger('setvalue')
     });
+    this.history = this.change.history
 
     this.asyncEvent = new AsyncEventModel(this);
 
@@ -191,9 +196,6 @@ export class Engine {
     return new Engine(container, options);
   }
 
-  private isHotkey(key: string, e: KeyboardEvent) {
-    return false
-  }
 
   private typingKeydown(e: KeyboardEvent) {
     if (this.isReadonly) {
@@ -256,15 +258,15 @@ export class Engine {
     }
     // 搜狗输入法在中文输入状态下，输入“/”变成“、”，所以需要加额外的 keyCode 判断
     // Windows 下用微软拼音输入法（即系统默认输入法）时，输入“/”后，keyCode 为 229
-    if (e.key === '/' || isHotkey('/', e) || e.keyCode === 229 && e.code === 'Slash') {
-      this.event.trigger('keydown:slash', e)
-      return
-    }
+    // if (e.key === '/' || isHotkey('/', e) || e.keyCode === 229 && e.code === 'Slash') {
+    //   this.event.trigger('keydown:slash', e)
+    //   return
+    // }
 
-    if (isHotkey('mod+a', e)) {
-      this.event.trigger('keydown:selectall', e)
-      return
-    }
+    // if (isHotkey('mod+a', e)) {
+    //   this.event.trigger('keydown:selectall', e)
+    //   return
+    // }
   }
 
   private typingKeyup(e: KeyboardEvent) {
@@ -463,7 +465,19 @@ export class Engine {
     return this
   }
   setValue(value: any) {
+    this.change.setValue(value)
     this.normalizeTree()
     return this
+  }
+
+  setJsonValue(value: any) {
+    throw new Error('Method not implemented.');
+  }
+
+  setDefaultValue(value) {
+    this.history.stop()
+    this.setValue(value)
+    this.history.start()
+    this.history.save(true, false)
   }
 }
