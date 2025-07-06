@@ -33,6 +33,7 @@
     "@tiptap/extension-typography": "^2.1.13",
     "@tiptap/react": "^2.1.13",
     "@tiptap/starter-kit": "^2.1.13",
+    "@types/xmldom": "^0.1.34",
     "better-scroll": "^2.5.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -45,6 +46,7 @@
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.0.0",
     "tailwindcss-animate": "^1.0.7",
+    "xmldom": "^0.6.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

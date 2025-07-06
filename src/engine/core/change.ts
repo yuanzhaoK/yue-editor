@@ -1,13 +1,15 @@
 import { BlockComponentData, CardType, EventCallback, RangeInterface } from "../types";
 import { getActiveMarks } from "../utils/mark";
 import { getActiveBlocks } from "../utils/block";
-import { getWindow } from "../utils/node";
+import { fetchAllChildren, getWindow } from "../utils/node";
 import { BlockManager } from "./block";
 import DOMEventManager from "./dom-event";
 import { HistoryManager } from "./history";
 import getNodeModel, { NodeModel } from "./node";
 import { shrinkRange } from "../utils/range";
 import { BRAND, ROOT_SELECTOR } from "../constants";
+import { ParserHtml } from "../parser/html";
+import { removeEmptyMarksAndAddBr } from "../changes/utils/mark";
 
 /**
  * 变更管理器配置选项
@@ -110,7 +112,11 @@ export class ChangeManager {
   private onSetValue: EventCallback;
 
 
-  private activeBlock: NodeModel | undefined
+  private activeBlock: NodeModel | undefined;
+
+  private blocks: NodeModel[];
+
+  private marks: NodeModel[];
   /**
    * 构造函数
    * @param editArea - 编辑区域
@@ -127,7 +133,8 @@ export class ChangeManager {
     this.onSelect = options.onSelect;
     this.onSetValue = options.onSetValue;
     this.activeBlock = undefined
-
+    this.blocks = [];
+    this.marks = [];
 
     // 初始化窗口和文档对象
     this.win = getWindow(editArea[0]);
@@ -138,16 +145,15 @@ export class ChangeManager {
     this.history = new HistoryManager(this, {
       onSave: (value: string) => {
         const range = this.getRange()
-        const marks = getActiveMarks(range)
-        const blocks = getActiveBlocks(range)
+        this.marks = getActiveMarks(range)
+        this.blocks = getActiveBlocks(range)
         this.change(value)
       }
     });
-
-
     // 初始化原生事件
     this.initializeNativeEvents();
   }
+
   change(value: string) {
     this.block.gc()
     this.onChange(value || this.getValue())
@@ -204,27 +210,7 @@ export class ChangeManager {
   getValue() {
     return ''
   }
-  setValue(value: string) {
-    value = value || ''
-    const range = this.getRange()
 
-    if (value === '') {
-      range.setStart(this.editArea[0], 0)
-      range.collapse(true)
-      this.select(range)
-    } else {
-      // const parser = new ParserHtml(value, this.schema, this.conversion, root => {
-      //   fetchAllChildren(root).forEach(node => {
-      //     removeEmptyMarksAndAddBr(getNodeModel(node))
-      //   })
-      // })
-      // this.editArea.html(parser.toLowerValue())
-      // this.card.renderAll(this.editArea, this.engine)
-    }
-
-    this.onSetValue(value)
-    this.history.save(false)
-  }
   getSelection() {
     throw new Error("Method not implemented.");
   }
@@ -246,7 +232,6 @@ export class ChangeManager {
 
   activateBlock(activeNode: Node, triggerType: string) {
     const activeNodeItem = getNodeModel(activeNode)
-
     const editArea = activeNodeItem.closest(ROOT_SELECTOR);
 
     if (!editArea[0] || this.editArea[0] === editArea[0]) {
@@ -302,6 +287,7 @@ export class ChangeManager {
       }
     }
   }
+
   private selectComponent(component: BlockComponentData, selected: boolean) {
     if (component && component.state.readonly || component.state.activatedByOther) {
       return
@@ -345,5 +331,69 @@ export class ChangeManager {
     this.select(range)
     this.history.update()
     this.onSelect(block)
+  }
+
+  // 焦点放到编辑区域
+  focus() {
+    const range = this.getRange();
+    this.select(range);
+    (this.editArea[0] as HTMLLinkElement).focus();
+    return this;
+  }
+
+  focusToStart() {
+    const range = this.getRange();
+    range.selectNodeContents(this.editArea[0]);
+    shrinkRange(range);
+    range.collapse(true);
+    this.select(range);
+    (this.editArea[0] as HTMLElement).focus();
+    return this;
+  }
+
+
+  /**
+   * 焦点移到结束位置
+   */
+  focusToEnd(): void {
+    const range = document.createRange() as RangeInterface;
+    range.selectNodeContents(this.editArea[0]);
+    range.collapse(false);
+    this.select(range);
+  }
+
+  /**
+   * 失去焦点
+   */
+  blur(): void {
+    (this.editArea[0] as HTMLElement).blur();
+  }
+  // ========== 内容操作方法 ==========
+
+  /**
+   * 设置编辑器内容
+   * @param value - HTML 内容
+   */
+  setValue(value: string) {
+    value = value || ''
+    const range = this.getRange()
+
+    if (value === '') {
+      range.setStart(this.editArea[0], 0)
+      range.collapse(true)
+      this.select(range)
+    } else {
+      const parser = new ParserHtml(value, this.schema, this.conversion, root => {
+        fetchAllChildren(root).forEach(node => {
+          removeEmptyMarksAndAddBr(getNodeModel(node))
+        })
+      })
+      this.editArea.html(parser.toLowerValue())
+      this.block.renderAll(this.editArea, this.engine)
+      // this.card.renderAll(this.editArea, this.engine)
+    }
+
+    this.onSetValue(value)
+    this.history.save(false)
   }
 }

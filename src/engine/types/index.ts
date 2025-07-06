@@ -4,6 +4,7 @@
  * 这个文件定义了引擎层的所有核心类型，为整个编辑器提供类型安全保障
  */
 
+import { Engine } from "../core/engine";
 import { NodeModel } from "../core/node";
 
 /**
@@ -24,14 +25,16 @@ export type EventCallback<T = any> = (data: T) => void | boolean;
 /**
  * 异步事件回调函数类型
  */
-export type AsyncEventCallback<T = any> = (data?: T) => Promise<void | boolean> | void | boolean;
+export type AsyncEventCallback<T = any> = (
+  data?: T
+) => Promise<void | boolean> | void | boolean;
 
 /**
  * 编辑器配置选项
  */
 export interface EngineOptions {
   /** 语言设置 */
-  lang?: 'en' | 'zh-cn';
+  lang?: "en" | "zh-cn";
 
   /** 父节点 */
   parentNode?: HTMLElement;
@@ -56,13 +59,13 @@ export interface EngineOptions {
  * 卡片类型枚举
  */
 export enum CardType {
-  INLINE = 'inline',
-  BLOCK = 'block'
+  INLINE = "inline",
+  BLOCK = "block",
 }
 
 export enum BlockType {
-  INLINE = 'inline',
-  BLOCK = 'block'
+  INLINE = "inline",
+  BLOCK = "block",
 }
 /**
  * 卡片状态接口
@@ -100,7 +103,17 @@ export interface CardValue {
  */
 export interface CardToolbarItemConfig {
   /** 工具栏项类型 */
-  type: 'button' | 'dropdown' | 'separator' | 'dnd' | 'copy' | 'delete' | 'maximize' | 'node' | 'collapse' | 'expand';
+  type:
+    | "button"
+    | "dropdown"
+    | "separator"
+    | "dnd"
+    | "copy"
+    | "delete"
+    | "maximize"
+    | "node"
+    | "collapse"
+    | "expand";
 
   /** 标题 */
   title?: string;
@@ -113,7 +126,17 @@ export interface CardToolbarItemConfig {
 }
 export interface CardToolbarItem {
   /** 工具栏项类型 */
-  type: 'button' | 'dropdown' | 'separator' | 'dnd' | 'copy' | 'delete' | 'maximize' | 'node' | 'collapse' | 'expand';
+  type:
+    | "button"
+    | "dropdown"
+    | "separator"
+    | "dnd"
+    | "copy"
+    | "delete"
+    | "maximize"
+    | "node"
+    | "collapse"
+    | "expand";
 
   node: NodeModel;
 
@@ -128,7 +151,6 @@ export interface CardToolbarItem {
 
   /** 点击回调 */
   onClick?: () => void;
-
 }
 /**
  * 选区范围接口
@@ -187,20 +209,20 @@ export interface RangeInterface extends Range {
  * 变更操作类型枚举
  */
 export enum ChangeType {
-  INSERT_TEXT = 'insert_text',
-  DELETE_CONTENT = 'delete_content',
-  INSERT_BLOCK = 'insert_block',
-  INSERT_INLINE = 'insert_inline',
-  INSERT_MARK = 'insert_mark',
-  REMOVE_MARK = 'remove_mark',
-  SET_BLOCKS = 'set_blocks',
-  WRAP_BLOCK = 'wrap_block',
-  UNWRAP_BLOCK = 'unwrap_block',
-  SPLIT_BLOCK = 'split_block',
-  MERGE_BLOCK = 'merge_block',
-  INSERT_CARD = 'insert_card',
-  UPDATE_CARD = 'update_card',
-  REMOVE_CARD = 'remove_card'
+  INSERT_TEXT = "insert_text",
+  DELETE_CONTENT = "delete_content",
+  INSERT_BLOCK = "insert_block",
+  INSERT_INLINE = "insert_inline",
+  INSERT_MARK = "insert_mark",
+  REMOVE_MARK = "remove_mark",
+  SET_BLOCKS = "set_blocks",
+  WRAP_BLOCK = "wrap_block",
+  UNWRAP_BLOCK = "unwrap_block",
+  SPLIT_BLOCK = "split_block",
+  MERGE_BLOCK = "merge_block",
+  INSERT_CARD = "insert_card",
+  UPDATE_CARD = "update_card",
+  REMOVE_CARD = "remove_card",
 }
 
 /**
@@ -336,6 +358,7 @@ export interface PluginInterface {
  * 卡片静态属性接口
  */
 export interface CardStaticInterface {
+  uid: boolean;
   /** 卡片名称 */
   cardName: string;
 
@@ -343,7 +366,7 @@ export interface CardStaticInterface {
   cardType: CardType;
 
   /** 选择样式类型 */
-  selectStyleType?: 'outline' | 'background';
+  selectStyleType?: "outline" | "background";
 
   /** 是否可搜索 */
   canSearch?: boolean;
@@ -353,7 +376,6 @@ export interface CardStaticInterface {
  * 卡片接口
  */
 export interface CardInterface {
-
   /** 卡片根节点 */
   cardRoot?: NodeModelInterface;
 
@@ -477,7 +499,9 @@ export interface NodeModelInterface {
   isEditable(): boolean;
 
   /** 遍历节点 */
-  each(callback: (node: Node, index: number) => void | boolean): NodeModelInterface;
+  each(
+    callback: (node: Node, index: number) => void | boolean
+  ): NodeModelInterface;
 
   /** 获取指定索引的节点 */
   eq(index: number): NodeModelInterface | undefined;
@@ -534,7 +558,14 @@ export interface NodeModelInterface {
   offset(): { top: number; left: number };
 
   /** 获取或设置属性 */
-  attr(keyOrAttrs?: string | Record<string, string | number | boolean>, val?: string | number | boolean): string | null | Record<string, string | number | boolean> | NodeModelInterface;
+  attr(
+    keyOrAttrs?: string | Record<string, string | number | boolean>,
+    val?: string | number | boolean
+  ):
+    | string
+    | null
+    | Record<string, string | number | boolean>
+    | NodeModelInterface;
 
   /** 移除属性 */
   removeAttr(key: string): NodeModelInterface;
@@ -612,7 +643,7 @@ export interface SchemaRule {
   name: string;
 
   /** 标签类型 */
-  type: 'block' | 'inline' | 'mark';
+  type: "block" | "inline" | "mark";
 
   /** 允许的属性 */
   attributes?: string[] | Record<string, any>;
@@ -620,13 +651,16 @@ export interface SchemaRule {
   /** 是否为空元素 */
   isVoid?: boolean;
 }
-
+export type ParseResult = {
+  html: string;
+  text: string;
+};
 /**
  * 解析器接口
  */
 export interface ParserInterface {
   /** 解析 DOM 节点 */
-  parse(node: Node): { html: string; text: string };
+  parse(node: Node): ParseResult;
 
   /** 序列化为 HTML */
   serialize(value: any): string;
@@ -673,10 +707,9 @@ export interface SidebarInterface {
  * 块组件数据
  */
 export interface BlockComponentData {
+  select?: () => void;
 
-  select?: () => void
-
-  unSelect?: () => void
+  unSelect?: () => void;
 
   autoSelected: boolean;
 
@@ -686,7 +719,7 @@ export interface BlockComponentData {
   /** 块组件名称 */
   name: string;
   /** 卡片组件实例 */
-  component: CardInterface;
+  component: BlockComponentData;
   /** 卡片根节点 */
   node: NodeModel;
 
@@ -708,15 +741,35 @@ export interface BlockComponentData {
   /** 是否嵌入工具栏 */
   embedToolbar?: () => CardToolbarItemConfig[];
 
+  singleSelectable: boolean;
 
-  singleSelectable: boolean
+  render(container: NodeModel, value: any): void;
+
+  engine: Engine;
+
+  destroy?: () => void;
+
+  didUpdate?: (value: any) => void;
+
 }
 
-
 export interface BlockConfig {
+  name?: string;
   component: BlockComponentData;
   engine: any;
-  contentView: HTMLElement;
-  cardRoot: NodeModel;
-  node: NodeModel;
+  contentView: HTMLElement | null;
+  blockRoot?: NodeModel;
+  node?: NodeModel;
+  value?: string | Record<string, any>
+}
+
+/**
+ * 解析器接口
+ */
+export interface ParserInterface {
+  /** 解析 DOM 节点 */
+  parse(node: Node): { html: string; text: string };
+
+  /** 序列化为 HTML */
+  serialize(value: any): string;
 }

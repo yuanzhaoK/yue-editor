@@ -1,11 +1,22 @@
-import { NodeModelInterface, DOMNode, Selector, EventCallback } from '../types';
-import EventModel from './event';
-import { CARD_TYPE_KEY, BLOCK_TAG_MAP, INLINE_TAG_MAP, ROOT_TAG_MAP, MARK_TAG_MAP, TABLE_TAG_MAP, ROOT_KEY, ROOT, VOID_TAG_MAP, SOLID_TAG_MAP, HEADING_TAG_MAP, TITLE_TAG_MAP, ROOT_SELECTOR } from '../constants';
-import { getAttrMap, toCamel } from '../utils/string';
-import { Engine } from './engine';
-
-
-
+import { NodeModelInterface, DOMNode, Selector, EventCallback } from "../types";
+import EventModel from "./event";
+import {
+  CARD_TYPE_KEY,
+  BLOCK_TAG_MAP,
+  INLINE_TAG_MAP,
+  ROOT_TAG_MAP,
+  MARK_TAG_MAP,
+  TABLE_TAG_MAP,
+  ROOT_KEY,
+  ROOT,
+  VOID_TAG_MAP,
+  SOLID_TAG_MAP,
+  HEADING_TAG_MAP,
+  TITLE_TAG_MAP,
+  ROOT_SELECTOR,
+} from "../constants";
+import { getAttrMap, toCamel } from "../utils/string";
+import { Engine } from "./engine";
 
 /**
  * 获取文档对象
@@ -32,21 +43,23 @@ const getWindow = (node?: Node): Window => {
   return (doc as any).parentWindow || (doc as any).defaultView || window;
 };
 
-
 /**
  * 将表达式转换为节点数组
  * @param expr - 表达式
  * @param root - 根节点
  * @returns 节点数组
  */
-const exprToNodes = (expr: string | Node | NodeModel | Node[] | NodeModel[], root?: Node): Node[] => {
+const exprToNodes = (
+  expr: string | Node | NodeModel | Node[] | NodeModel[],
+  root?: Node
+): Node[] => {
   let nodes: Node[] = [];
 
-  if (typeof expr === 'string') {
+  if (typeof expr === "string") {
     const doc = getDocument(root);
     if (/^</.test(expr)) {
       // HTML 字符串
-      const div = doc.createElement('div');
+      const div = doc.createElement("div");
       div.innerHTML = expr;
       nodes = Array.from(div.childNodes);
     } else {
@@ -63,7 +76,9 @@ const exprToNodes = (expr: string | Node | NodeModel | Node[] | NodeModel[], roo
   } else if (expr && (expr as any).nodeType) {
     nodes = [expr as Node];
   } else if (Array.isArray(expr)) {
-    nodes = expr.flatMap(item => item instanceof NodeModel ? item.toArray() : [item as Node]);
+    nodes = expr.flatMap((item) =>
+      item instanceof NodeModel ? item.toArray() : [item as Node]
+    );
   }
 
   return nodes;
@@ -75,11 +90,20 @@ const exprToNodes = (expr: string | Node | NodeModel | Node[] | NodeModel[], roo
  * @param key - 样式属性名
  * @returns 样式值
  */
-const getComputedCss = (node: Element, key: string): string => {
+const getComputedCss = (
+  node: Element,
+  key?: string
+): string | CSSStyleDeclaration => {
   const win = getWindow(node);
-  const camelKey = toCamel(key);
   const style = win.getComputedStyle(node, null);
-  return (style as any)[camelKey];
+
+  if (key) {
+    // 获取所有计算样式
+    const camelKey = toCamel(key);
+    return (style as any)[camelKey];
+  } else {
+    return style;
+  }
 };
 
 /**
@@ -90,7 +114,10 @@ const getComputedCss = (node: Element, key: string): string => {
  */
 const contains = (nodeA: Node, nodeB: Node): boolean => {
   // 对于 document 节点的特殊处理
-  if (nodeA.nodeType === Node.DOCUMENT_NODE && nodeB.nodeType !== Node.DOCUMENT_NODE) {
+  if (
+    nodeA.nodeType === Node.DOCUMENT_NODE &&
+    nodeB.nodeType !== Node.DOCUMENT_NODE
+  ) {
     return true;
   }
 
@@ -161,7 +188,6 @@ export class NodeModel implements NodeModelInterface {
   /** 节点索引访问 */
   [index: number]: Node;
 
-
   /**
    * 构造函数
    * @param nodes - 节点或节点数组
@@ -170,11 +196,11 @@ export class NodeModel implements NodeModelInterface {
   constructor(nodes: string | Node | Node[], root?: Node, engine?: Engine) {
     this.events = new Map();
     let nodeArray: Node[];
-    if (typeof nodes === 'string') {
+    if (typeof nodes === "string") {
       nodeArray = exprToNodes(nodes, root);
     } else if (nodes && (nodes as Node).nodeType) {
       nodeArray = [nodes as Node];
-    } else if (nodes && typeof (nodes as any).length === 'number') {
+    } else if (nodes && typeof (nodes as any).length === "number") {
       nodeArray = Array.from(nodes as Node[] | NodeList);
     } else {
       nodeArray = [];
@@ -188,12 +214,12 @@ export class NodeModel implements NodeModelInterface {
     if (this.length > 0) {
       this.doc = getDocument(root);
       this.root = root;
-      this.name = this[0].nodeName ? this[0].nodeName.toLowerCase() : '';
+      this.name = this[0].nodeName ? this[0].nodeName.toLowerCase() : "";
       this.type = this[0].nodeType;
       this.win = getWindow(this[0]);
     } else {
       this.doc = document;
-      this.name = '';
+      this.name = "";
       this.type = 0;
       this.win = window;
     }
@@ -201,23 +227,29 @@ export class NodeModel implements NodeModelInterface {
 
   // ========== 属性操作方法 begin ==========
   /**
-     * 获取或设置属性
-     */
+   * 获取或设置属性
+   */
 
   attr(
     keyOrAttrs?: string | Record<string, string | number | boolean>,
     val?: string | number | boolean
-  ): string | null | Record<string, string | number | boolean> | NodeModelInterface {
-
+  ):
+    | string
+    | null
+    | Record<string, string | number | boolean>
+    | NodeModelInterface {
     if (keyOrAttrs === undefined) {
       const resultNode = this.clone(false)[0];
       if (resultNode && resultNode.nodeType === Node.ELEMENT_NODE) {
-        return getAttrMap((resultNode as Element).outerHTML) as Record<string, string | number | boolean> | null
+        return getAttrMap((resultNode as Element).outerHTML) as Record<
+          string,
+          string | number | boolean
+        > | null;
       }
       return null;
     }
 
-    if (typeof keyOrAttrs === 'object') {
+    if (typeof keyOrAttrs === "object") {
       // 批量设置属性
       this.each((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -249,9 +281,9 @@ export class NodeModel implements NodeModelInterface {
     return element.getAttribute ? element.getAttribute(keyOrAttrs) : null;
   }
   /**
-     * 移除属性
-     * @param key - 属性名
-     */
+   * 移除属性
+   * @param key - 属性名
+   */
   removeAttr(key: string): NodeModelInterface {
     this.each((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
@@ -261,7 +293,6 @@ export class NodeModel implements NodeModelInterface {
     return this as NodeModelInterface;
   }
   // ========== 属性操作方法 end ==========
-
 
   // ========== CSS 类操作方法 begin ==========
 
@@ -312,21 +343,20 @@ export class NodeModel implements NodeModelInterface {
 
   // ========== CSS 类操作方法 end ==========
 
-
-
   // ========== 样式操作方法 ==========
 
   /**
    * 获取或设置样式
    */
-  css(key?: string): string;
-  css(key?: string, val?: string | number): NodeModelInterface;
+  css(key: string): string;
+  css(key: string, val: string | number): NodeModelInterface;
   css(styles?: Record<string, string | number>): NodeModelInterface;
   css(
     keyOrStyles?: string | Record<string, string | number>,
     val?: string | number
   ): string | NodeModelInterface {
-    if (typeof keyOrStyles === 'object') {
+    const element = this[0] as Element;
+    if (typeof keyOrStyles === "object") {
       // 批量设置样式
       this.each((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -351,12 +381,12 @@ export class NodeModel implements NodeModelInterface {
     }
 
     // 获取样式
-    if (this.length === 0) {
-      return '';
+    if (this.length === 0 || !keyOrStyles) {
+      return "";
     }
 
-    const element = this[0] as Element;
-    return getComputedCss(element, keyOrStyles!);
+    const computedStyle = getComputedCss(element, keyOrStyles);
+    return typeof computedStyle === 'string' ? computedStyle : '';
   }
 
   /**
@@ -385,18 +415,14 @@ export class NodeModel implements NodeModelInterface {
 
   // ========== 样式操作方法 end ==========
 
-
-
-
-
-
-
   // ========== 遍历和访问方法 begin ==========
   /**
- * 遍历节点
- * @param callback - 回调函数
- */
-  each(callback: (node: Node, index: number) => void | boolean): NodeModelInterface {
+   * 遍历节点
+   * @param callback - 回调函数
+   */
+  each(
+    callback: (node: Node, index: number) => void | boolean
+  ): NodeModelInterface {
     for (let i = 0; i < this.length; i++) {
       if (callback(this[i], i) === false) {
         break;
@@ -405,11 +431,13 @@ export class NodeModel implements NodeModelInterface {
     return this as NodeModelInterface;
   }
   /**
-  * 获取指定索引的节点
-  * @param index - 索引
-  */
+   * 获取指定索引的节点
+   * @param index - 索引
+   */
   eq(index: number): NodeModelInterface | undefined {
-    return this[index] ? new NodeModel(this[index]) as NodeModelInterface : undefined;
+    return this[index]
+      ? (new NodeModel(this[index]) as NodeModelInterface)
+      : undefined;
   }
 
   /**
@@ -431,7 +459,7 @@ export class NodeModel implements NodeModelInterface {
    */
   parent(): NodeModel | undefined {
     const node = this[0].parentNode;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -446,8 +474,10 @@ export class NodeModel implements NodeModelInterface {
         const childNodes = Array.from(node.childNodes);
         if (selector) {
           childNodes.forEach((child) => {
-            if (child.nodeType === Node.ELEMENT_NODE &&
-              isMatchesSelector(child as Element, selector)) {
+            if (
+              child.nodeType === Node.ELEMENT_NODE &&
+              isMatchesSelector(child as Element, selector)
+            ) {
               children.push(child);
             }
           });
@@ -465,7 +495,7 @@ export class NodeModel implements NodeModelInterface {
    */
   first(): NodeModel | undefined {
     const node = this[0].firstChild;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -473,7 +503,7 @@ export class NodeModel implements NodeModelInterface {
    */
   last(): NodeModel | undefined {
     const node = this[0].lastChild;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -481,7 +511,7 @@ export class NodeModel implements NodeModelInterface {
    */
   prev(): NodeModel | undefined {
     const node = this[0].previousSibling;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -489,7 +519,7 @@ export class NodeModel implements NodeModelInterface {
    */
   next(): NodeModel | undefined {
     const node = this[0].nextSibling;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -497,7 +527,7 @@ export class NodeModel implements NodeModelInterface {
    */
   prevElement(): NodeModel | undefined {
     const node = (this[0] as Element).previousElementSibling;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -505,7 +535,7 @@ export class NodeModel implements NodeModelInterface {
    */
   nextElement(): NodeModel | undefined {
     const node = (this[0] as Element).nextElementSibling;
-    return node ? new NodeModel(node) as NodeModel : undefined;
+    return node ? (new NodeModel(node) as NodeModel) : undefined;
   }
 
   /**
@@ -513,7 +543,8 @@ export class NodeModel implements NodeModelInterface {
    * @param otherNode - 其他节点
    */
   contains(otherNode: Node | NodeModel): boolean {
-    const targetNode = otherNode instanceof NodeModel ? otherNode[0] : otherNode as Node;
+    const targetNode =
+      otherNode instanceof NodeModel ? otherNode[0] : (otherNode as Node);
     return contains(this[0], targetNode as Node);
   }
 
@@ -551,10 +582,7 @@ export class NodeModel implements NodeModelInterface {
     return new NodeModel([]) as NodeModelInterface;
   }
 
-
   // ========== 遍历和访问方法 end==========
-
-
 
   /**
    * 将节点模型转换为节点数组
@@ -570,13 +598,16 @@ export class NodeModel implements NodeModelInterface {
   }
 
   /**
-    * 移除字体大小类名
-    * 用于清理编辑器生成的字体大小样式
-    */
+   * 移除字体大小类名
+   * 用于清理编辑器生成的字体大小样式
+   */
   removeFontSize(): NodeModelInterface {
-    const classValue = this.attr('class') as string;
+    const classValue = this.attr("class") as string;
     if (classValue) {
-      this.attr('class', classValue.replace(/daphne-fontsize-[\d]{1,2}/, '')) as NodeModelInterface;
+      this.attr(
+        "class",
+        classValue.replace(/daphne-fontsize-[\d]{1,2}/, "")
+      ) as NodeModelInterface;
     }
     return this as NodeModelInterface;
   }
@@ -601,7 +632,7 @@ export class NodeModel implements NodeModelInterface {
    * 是否为块级元素
    */
   isBlock(): boolean {
-    if (this.attr(CARD_TYPE_KEY) === 'inline') {
+    if (this.attr(CARD_TYPE_KEY) === "inline") {
       return false;
     }
     return !!BLOCK_TAG_MAP[this.name];
@@ -653,7 +684,7 @@ export class NodeModel implements NodeModelInterface {
    * 是否为块级卡片
    */
   isBlockCard(): boolean {
-    return this.attr(CARD_TYPE_KEY) === 'block';
+    return this.attr(CARD_TYPE_KEY) === "block";
   }
 
   /**
@@ -698,9 +729,7 @@ export class NodeModel implements NodeModelInterface {
     return this.attr(ROOT_KEY) === ROOT;
   }
 
-
   // ========== 节点类型判断方法 end ==========
-
 
   /**
    * 是否可编辑
@@ -712,7 +741,6 @@ export class NodeModel implements NodeModelInterface {
     return this.closest(ROOT_SELECTOR).length > 0;
   }
 
-
   // ========== 事件处理方法 ==========
 
   /**
@@ -723,7 +751,7 @@ export class NodeModel implements NodeModelInterface {
   on(eventType: string, listener: EventCallback): NodeModelInterface {
     this.each((node, index) => {
       node.addEventListener(eventType, listener);
-      this.events.get(index.toString())?.on(eventType, listener)
+      this.events.get(index.toString())?.on(eventType, listener);
     });
     return this as NodeModelInterface;
   }
@@ -756,7 +784,6 @@ export class NodeModel implements NodeModelInterface {
     return this as NodeModelInterface;
   }
 
-
   // ========== 几何属性方法 ==========
 
   /**
@@ -776,8 +803,8 @@ export class NodeModel implements NodeModelInterface {
     return defaultValue || new DOMRect();
   }
   /**
-  * 获取偏移位置
-  */
+   * 获取偏移位置
+   */
   offset(): { top: number; left: number } {
     if (this.length === 0) {
       return { top: 0, left: 0 };
@@ -788,7 +815,7 @@ export class NodeModel implements NodeModelInterface {
 
     return {
       top: rect.top + win.pageYOffset,
-      left: rect.left + win.pageXOffset
+      left: rect.left + win.pageXOffset,
     };
   }
 
@@ -812,11 +839,11 @@ export class NodeModel implements NodeModelInterface {
 
     // 获取 HTML
     if (this.length === 0) {
-      return '';
+      return "";
     }
 
     const element = this[0] as Element;
-    return element.innerHTML || '';
+    return element.innerHTML || "";
   }
 
   /**
@@ -824,15 +851,13 @@ export class NodeModel implements NodeModelInterface {
    */
   text(): string {
     if (this.length === 0) {
-      return '';
+      return "";
     }
 
-    return this[0].textContent || '';
+    return this[0].textContent || "";
   }
 
   // ========== 内容操作方法 end ==========
-
-
 
   // ========== 显示控制方法 begin ==========
 
@@ -844,7 +869,7 @@ export class NodeModel implements NodeModelInterface {
     this.each((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as HTMLElement;
-        element.style.display = display || '';
+        element.style.display = display || "";
       }
     });
     return this as NodeModelInterface;
@@ -857,16 +882,13 @@ export class NodeModel implements NodeModelInterface {
     this.each((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as HTMLElement;
-        element.style.display = 'none';
+        element.style.display = "none";
       }
     });
     return this as NodeModelInterface;
   }
 
   // ========== 显示控制方法 end ==========
-
-
-
 
   // ========== DOM 操作方法 ==========
 
@@ -911,9 +933,15 @@ export class NodeModel implements NodeModelInterface {
    * 在开头插入内容
    * @param content - 内容
    */
-  prepend(content: string | Node | NodeModel | NodeModelInterface): NodeModelInterface {
-    const nodes = content instanceof NodeModel ? content.toArray() :
-      typeof content === 'string' ? exprToNodes(content) : [content as Node];
+  prepend(
+    content: string | Node | NodeModel | NodeModelInterface
+  ): NodeModelInterface {
+    const nodes =
+      content instanceof NodeModel
+        ? content.toArray()
+        : typeof content === "string"
+        ? exprToNodes(content)
+        : [content as Node];
 
     this.each((node) => {
       nodes.forEach((newNode) => {
@@ -933,9 +961,15 @@ export class NodeModel implements NodeModelInterface {
    * 在末尾插入内容
    * @param content - 内容
    */
-  append(content: string | Node | NodeModel | NodeModelInterface): NodeModelInterface {
-    const nodes = content instanceof NodeModel ? content.toArray() :
-      typeof content === 'string' ? exprToNodes(content) : [content as Node];
+  append(
+    content: string | Node | NodeModel | NodeModelInterface
+  ): NodeModelInterface {
+    const nodes =
+      content instanceof NodeModel
+        ? content.toArray()
+        : typeof content === "string"
+        ? exprToNodes(content)
+        : [content as Node];
 
     this.each((node) => {
       nodes.forEach((newNode) => {
@@ -951,9 +985,15 @@ export class NodeModel implements NodeModelInterface {
    * 在前面插入内容
    * @param content - 内容
    */
-  before(content: string | Node | NodeModel | NodeModelInterface): NodeModelInterface {
-    const nodes = content instanceof NodeModel ? content.toArray() :
-      typeof content === 'string' ? exprToNodes(content) : [content as Node];
+  before(
+    content: string | Node | NodeModel | NodeModelInterface
+  ): NodeModelInterface {
+    const nodes =
+      content instanceof NodeModel
+        ? content.toArray()
+        : typeof content === "string"
+        ? exprToNodes(content)
+        : [content as Node];
 
     this.each((node) => {
       if (node.parentNode) {
@@ -971,9 +1011,15 @@ export class NodeModel implements NodeModelInterface {
    * 在后面插入内容
    * @param content - 内容
    */
-  after(content: string | Node | NodeModel | NodeModelInterface): NodeModelInterface {
-    const nodes = content instanceof NodeModel ? content.toArray() :
-      typeof content === 'string' ? exprToNodes(content) : [content as Node];
+  after(
+    content: string | Node | NodeModel | NodeModelInterface
+  ): NodeModelInterface {
+    const nodes =
+      content instanceof NodeModel
+        ? content.toArray()
+        : typeof content === "string"
+        ? exprToNodes(content)
+        : [content as Node];
 
     this.each((node) => {
       if (node.parentNode) {
@@ -996,9 +1042,15 @@ export class NodeModel implements NodeModelInterface {
    * 替换内容
    * @param content - 内容
    */
-  replaceWith(content: string | Node | NodeModel | NodeModelInterface): NodeModelInterface {
-    const nodes = content instanceof NodeModel ? content.toArray() :
-      typeof content === 'string' ? exprToNodes(content) : [content as Node];
+  replaceWith(
+    content: string | Node | NodeModel | NodeModelInterface
+  ): NodeModelInterface {
+    const nodes =
+      content instanceof NodeModel
+        ? content.toArray()
+        : typeof content === "string"
+        ? exprToNodes(content)
+        : [content as Node];
 
     this.each((node) => {
       if (node.parentNode && nodes.length > 0) {
@@ -1017,8 +1069,10 @@ export class NodeModel implements NodeModelInterface {
   }
 }
 
-
-export default (expr: string | Node | NodeModel | Node[] | NodeModel[], root?: Node): NodeModel => {
-  const nodes = exprToNodes(expr, root)
-  return new NodeModel(nodes, root) as NodeModel
-}
+export default (
+  expr: string | Node | NodeModel | Node[] | NodeModel[],
+  root?: Node
+): NodeModel => {
+  const nodes = exprToNodes(expr, root);
+  return new NodeModel(nodes, root) as NodeModel;
+};

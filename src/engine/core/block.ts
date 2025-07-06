@@ -15,13 +15,15 @@ import {
   BlockComponentData,
   BlockConfig,
   CardToolbarItem,
-  CardToolbarItemConfig
+  CardToolbarItemConfig,
+  NodeModelInterface
 } from '../types';
-import { decodeCardValue, encodeCardValue, randomId } from '../utils/string';
-import { CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_KEY, CARD_LEFT_SELECTOR, CARD_RIGHT_SELECTOR, CARD_TYPE_KEY, CARD_VALUE_KEY } from '../constants';
+import { decodeCardValue, encodeCardValue, randomId, transformCustomTags } from '../utils/string';
+import { BRAND, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_KEY, CARD_LEFT_SELECTOR, CARD_RIGHT_SELECTOR, CARD_SELECTOR, CARD_TYPE_KEY, CARD_VALUE_KEY, READY_CARD_KEY, READY_CARD_SELECTOR } from '../constants';
 import tooltip from '../toolbar/tooltip';
 import { copyNode } from '../utils/clipboard';
 import EmbedToolbar from '../toolbar';
+import { Engine } from './engine';
 
 
 const dndTemplate = () => `
@@ -49,8 +51,8 @@ const maximizeHeaderTemplate = (config: any) => `
   </div>
 </div>
 `
-
-export const getCardRoot = (node: Node | NodeModel) => {
+let open = false;
+export const getBlockRoot = (node: Node | NodeModel) => {
   let nodeCopy = getNodeModel(node)
   while (nodeCopy) {
     if (nodeCopy.isRoot())
@@ -86,11 +88,27 @@ export const getCardRoot = (node: Node | NodeModel) => {
  * ```
  */
 export class BlockManager {
-  focus(range: RangeInterface, block: NodeModel, arg2: boolean) {
-    throw new Error("Method not implemented.");
+
+  /**
+   * 聚焦卡片
+   * @param range - 选区
+   * @param block - 卡片根节点
+   * @param toStart - 是否从开始聚焦
+   */
+  focus(range: RangeInterface, block: NodeModel, toStart: boolean) {
+    const cardLeft = this.findByKey(block, 'left')
+    const cardRight = this.findByKey(block, 'right')
+
+    if (cardLeft.length === 0 || cardRight.length === 0) {
+      return
+    }
+    range.selectNodeContents(toStart ? cardLeft[0] : cardRight[0])
+    range.collapse(false)
   }
-  showToolbar(cardRoot: NodeModel) {
-    throw new Error("Method not implemented.");
+
+  showToolbar(blockRoot: NodeModel) {
+    this.find(blockRoot, `.${BRAND}-card-dnd`).addClass(`${BRAND}-card-dnd-active`)
+    this.showCardToolbar(blockRoot)
   }
   hideToolbar(activeBlock: NodeModel) {
     throw new Error("Method not implemented.");
@@ -107,7 +125,7 @@ export class BlockManager {
   private idCache: Map<string, BlockComponentData> = new Map();
 
   /** 编辑器引擎实例 */
-  private engine: any;
+  private engine: Engine;
 
 
   /**
@@ -146,9 +164,9 @@ export class BlockManager {
     }
   }
 
-  getComponent(cardRoot: NodeModel): BlockComponentData | null {
+  getComponent(blockRoot: NodeModel): BlockComponentData | null {
     this.blocks.forEach(component => {
-      if (component.node[0] === cardRoot[0]) {
+      if (component.node[0] === blockRoot[0]) {
         return component
       }
     })
@@ -156,11 +174,11 @@ export class BlockManager {
   }
 
   // 设置 DOM 属性里的数据
-  setValue(cardRoot: NodeModel, value: any) {
+  setValue(blockRoot: NodeModel, value: any) {
     if (value == null) {
       return
     }
-    const component = this.getComponent(cardRoot)
+    const component = this.getComponent(blockRoot)
     if (component) {
       if ("object" === typeof component.value && component.value.id) {
         value.id = component.value.id
@@ -171,27 +189,28 @@ export class BlockManager {
       component.value = value
     }
     value = encodeCardValue(value)
-    cardRoot.attr(CARD_VALUE_KEY, value)
+    blockRoot.attr(CARD_VALUE_KEY, value)
   }
 
   // 获取 DOM 属性里的数据
-  getValue(cardRoot: NodeModel) {
-    let value = cardRoot.attr(CARD_VALUE_KEY)
+  getValue(blockRoot: NodeModel) {
+    let value = blockRoot.attr(CARD_VALUE_KEY)
     if (!value)
       return null
     return decodeCardValue(value as string)
   }
 
   setToolbar(cfg: BlockConfig) {
-    const { cardRoot, component, engine, contentView } = cfg
+    const { blockRoot, component, engine } = cfg
+    const contentView = cfg.contentView!
     let config = component.embedToolbar?.() as CardToolbarItemConfig[]
 
 
-    if (!Array.isArray(config)) {
+    if (!Array.isArray(config) || !blockRoot) {
       return
     }
 
-    const cardBody = cardRoot.first()
+    const cardBody = blockRoot.first()
     if (!cardBody) {
       return
     }
@@ -215,11 +234,11 @@ export class BlockManager {
         dndNode.on('mousedown', e => {
           e.stopPropagation()
           tooltip.hide()
-          this.hideCardToolbar(cardRoot)
+          this.hideCardToolbar(blockRoot)
         })
 
         dndNode.on('mouseup', () => {
-          this.showCardToolbar(cardRoot)
+          this.showCardToolbar(blockRoot)
         })
         cardBody.append(dndNode)
         config = config.filter(item => item.type !== 'dnd')
@@ -240,7 +259,7 @@ export class BlockManager {
             iconName: 'copy',
             title: lang.copy.tips,
             onClick: () => {
-              if (copyNode(cardRoot, engine.event)) {
+              if (copyNode(blockRoot, engine.event)) {
                 engine.messageSuccess(lang.copy.success)
               } else {
                 engine.messageError(lang.copy.error)
@@ -256,7 +275,7 @@ export class BlockManager {
             iconName: 'delete',
             title: engine.lang.delete.tips,
             onClick: () => {
-              engine.change.removeCard(cardRoot)
+              engine.change.removeCard(blockRoot)
               engine.sidebar.restore()
             }
           }
@@ -269,10 +288,13 @@ export class BlockManager {
             iconName: 'maximize',
             title: engine.lang.maximize.tips,
             onClick: () => {
+              if (!blockRoot) {
+                return;
+              }
               this.maximize({
-                cardRoot,
+                blockRoot,
                 engine,
-                contentView
+                contentView,
               })
             }
           }
@@ -286,7 +308,7 @@ export class BlockManager {
             title: engine.lang.collapse.tips,
             onClick: () => {
               this.collapse({
-                cardRoot,
+                blockRoot,
                 engine,
                 contentView
               })
@@ -302,7 +324,7 @@ export class BlockManager {
             title: engine.lang.expand.tips,
             onClick: () => {
               this.expand({
-                cardRoot,
+                blockRoot,
                 engine,
                 contentView
               })
@@ -319,12 +341,12 @@ export class BlockManager {
     } else {
       const readCardTool = getNodeModel(readBlockToolTemplate())
       readCardTool.hide()
-      cardRoot.on('mouseenter', () => {
+      blockRoot.on('mouseenter', () => {
         cardBody.append(readCardTool)
         readCardTool.show()
       })
 
-      cardRoot.on('mouseleave', () => {
+      blockRoot.on('mouseleave', () => {
         getNodeModel('body').append(readCardTool)
         readCardTool.hide()
       })
@@ -347,69 +369,69 @@ export class BlockManager {
           switch (item.type) {
             case 'maximize':
               this.maximize({
-                cardRoot,
+                blockRoot,
                 engine,
                 contentView
               })
               break
             case 'collapse':
               this.collapse({
-                cardRoot,
+                blockRoot,
                 engine,
                 contentView
               })
               break
             case 'expand':
               this.expand({
-                cardRoot,
+                blockRoot,
                 engine,
                 contentView
               })
               break
             default:
               //     this[item.type]({
-              //       cardRoot,
+              //       blockRoot,
               //       engine,
               //       contentView
               //     })
               break;
           }
 
-          this.hideCardToolbar(cardRoot)
+          this.hideCardToolbar(blockRoot)
         })
         return item
       })
     }
   }
-  expand(arg0: { cardRoot: NodeModel; engine: any; contentView: HTMLElement; }) {
+  expand(conifg: Omit<BlockConfig, 'component'>) {
     throw new Error('Method not implemented.');
   }
-  collapse(arg0: { cardRoot: NodeModel; engine: any; contentView: HTMLElement; }) {
+  collapse(conifg: Omit<BlockConfig, 'component'>) {
     throw new Error('Method not implemented.');
   }
-  maximize(arg0: { cardRoot: NodeModel; engine: any; contentView: HTMLElement; }) {
+  maximize(conifg: Omit<BlockConfig, 'component'>) {
     throw new Error('Method not implemented.');
   }
-  showCardToolbar(cardRoot: NodeModel) {
-    const toolbarNode = cardRoot.find('.daphne-card-toolbar')
+  showCardToolbar(blockRoot: NodeModel) {
+    const toolbarNode = blockRoot.find('.daphne-card-toolbar')
     toolbarNode.addClass('daphne-card-toolbar-active')
     toolbarNode.addClass('daphne-embed-toolbar-active')
   }
 
-  hideCardToolbar(cardRoot: NodeModel) {
-    const cardBody = cardRoot.first()
+  hideCardToolbar(blockRoot: NodeModel) {
+    const cardBody = blockRoot.first()
     if (cardBody) {
       cardBody.hide()
     }
   }
   // 获取卡片内的 DOM 节点
-  find(cardRoot: NodeModel, selector: string) {
-    const nodeList = cardRoot.find(selector)
+  find(blockRoot: NodeModel, selector: string) {
+    const nodeList = blockRoot.find(selector)
     // 排除子卡片里的节点
     const newNodeList: Node[] = []
     nodeList.each(node => {
       const subCardRoot = this.closest(node)
-      if (subCardRoot && subCardRoot[0] === cardRoot[0]) {
+      if (subCardRoot && subCardRoot[0] === blockRoot[0]) {
         newNodeList.push(node)
       }
     })
@@ -418,31 +440,31 @@ export class BlockManager {
 
   // 向上寻找卡片根节点
   closest(node: Node | NodeModel) {
-    return getCardRoot(node)
+    return getBlockRoot(node)
   }
 
 
 
-  isInline(cardRoot: NodeModel) {
-    return cardRoot && cardRoot.length !== 0 && "inline" === cardRoot.attr(CARD_TYPE_KEY)
+  isInline(blockRoot: NodeModel) {
+    return blockRoot && blockRoot.length !== 0 && "inline" === blockRoot.attr(CARD_TYPE_KEY)
   }
 
-  isBlock(cardRoot: NodeModel) {
-    return cardRoot && cardRoot.length !== 0 && "block" === cardRoot.attr(CARD_TYPE_KEY)
+  isBlock(blockRoot: NodeModel) {
+    return blockRoot && blockRoot.length !== 0 && "block" === blockRoot.attr(CARD_TYPE_KEY)
   }
 
-  getName(cardRoot: NodeModel) {
-    if (cardRoot && 0 !== cardRoot.length)
-      return cardRoot.attr(CARD_KEY)
+  getName(blockRoot: NodeModel) {
+    if (blockRoot && 0 !== blockRoot.length)
+      return blockRoot.attr(CARD_KEY)
     return ""
   }
 
-  getCenter(cardRoot: NodeModel) {
-    return cardRoot.find(CARD_CENTER_SELECTOR)
+  getCenter(blockRoot: NodeModel) {
+    return blockRoot.find(CARD_CENTER_SELECTOR)
   }
 
-  isCenter(cardRoot: NodeModel) {
-    return "center" === cardRoot.attr(CARD_ELEMENT_KEY)
+  isCenter(blockRoot: NodeModel) {
+    return "center" === blockRoot.attr(CARD_ELEMENT_KEY)
   }
 
   isCursor(node: Node) {
@@ -472,7 +494,7 @@ export class BlockManager {
    */
   public create(cfg: BlockConfig) {
     const { component, engine, contentView } = cfg
-    let { cardRoot } = cfg
+    let { blockRoot } = cfg
     const { type, name, value, container } = component
     const readonly = component.state.readonly
     const hasFocus = component.hasFocus === undefined ? !readonly : component.hasFocus;
@@ -483,14 +505,14 @@ export class BlockManager {
 
     const tagName = type === 'inline' ? 'span' : 'div'
 
-    if (cardRoot) {
-      cardRoot.empty()
+    if (blockRoot) {
+      blockRoot.empty()
     } else {
-      cardRoot = getNodeModel(`<${tagName}/>`)
+      blockRoot = getNodeModel(`<${tagName}/>`)
     }
-    component.node = cardRoot;
-    cardRoot.attr(CARD_TYPE_KEY, type)
-    cardRoot.attr(CARD_KEY, name)
+    component.node = blockRoot;
+    blockRoot.attr(CARD_TYPE_KEY, type)
+    blockRoot.attr(CARD_KEY, name)
     this.blocks.set(randomId(), component)
 
     if (hasFocus) {
@@ -500,7 +522,7 @@ export class BlockManager {
     }
 
     const cardBody = getNodeModel(`<${tagName} ${CARD_ELEMENT_KEY}="body" />`)
-    cardRoot.append(cardBody)
+    blockRoot.append(cardBody)
     if (hasFocus) {
       const cardLeft = getNodeModel(`<span ${CARD_ELEMENT_KEY}="left">&#8203;</span>`)
       const cardRight = getNodeModel(`<span ${CARD_ELEMENT_KEY}="right">&#8203;</span>`)
@@ -510,26 +532,26 @@ export class BlockManager {
     } else {
       cardBody.append(container)
     }
-    cardRoot.append(cardBody)
+    blockRoot.append(cardBody)
     if (component.embedToolbar) {
       this.setToolbar({
-        cardRoot: cardRoot,
+        blockRoot,
         component: component,
         engine: engine,
         contentView: contentView,
       } as BlockConfig)
     }
-    component.blockRoot = cardRoot
+    component.blockRoot = blockRoot
 
-    return cardRoot
+    return blockRoot
   }
   // 销毁不存在节点的卡片控件
   public gc() {
     this.components.forEach((cmp, idx) => {
-      const cardRoot = cmp.node;
+      const blockRoot = cmp.node;
       const component = cmp.component
 
-      if (cardRoot[0] && cardRoot.closest('body').length > 0) {
+      if (blockRoot[0] && blockRoot.closest('body').length > 0) {
         return
       }
       this.destroyComponent(component);
@@ -537,11 +559,175 @@ export class BlockManager {
     })
   }
 
-  private destroyComponent(component: CardInterface) {
-    throw new Error('Method not implemented.');
+  private destroyComponent(component: BlockComponentData) {
+    if (component.destroy && component.engine) {
+      component.destroy()
+    }
+    const value = component.value
+    if (value && typeof value === "object") {
+      if (value.id && this.idCache.get(value.id)) {
+        this.idCache.delete(value.id)
+      }
+    }
+  }
+  private removeComponent(blockRoot: NodeModel) {
+    this.components.forEach((item, index) => {
+      if (item.node[0] === blockRoot[0]) {
+        this.components.delete(index)
+        return false
+      }
+    })
+  }
+  private createComponent(cfg: Omit<BlockConfig, 'component'>): BlockComponentData | null {
+    const { name, engine, contentView } = cfg
+    let { value } = cfg
+    const componentClass = this.componentClasses.get(name!)! as CardStaticInterface
+
+    if (componentClass.cardType === "block" && open) {
+      value = value || {}
+      componentClass.uid = true
+    }
+    if (componentClass && typeof componentClass === 'function') {
+      const component = new (componentClass as any)(engine, contentView)
+      // 设置卡片只读属性
+      component.engine = engine
+      component.contentView = contentView
+      component.state = {
+        readonly: !engine,
+        collapsed: false
+      }
+      component.type = (componentClass as CardStaticInterface).cardType
+      component.name = name
+      component.value = value
+      // 生成卡片容器
+      const container = component.type === 'inline' ? getNodeModel('<span />') : getNodeModel('<div />')
+      container.attr(CARD_ELEMENT_KEY, 'center')
+      // 设置卡片只读属性
+      component.container = container
+      return component
+    }
+    return null
   }
 
-  public render(container, component) {
+  public render(container: NodeModel, component: BlockComponentData) {
+    try {
+      const { blockRoot, value } = component
+      if (value && typeof value === 'object' && value.id) {
+        blockRoot.attr('id', value.id)
+      }
+      component.render(container, component.value)
+    } catch (err) {
+      console.error('render error: ', err)
+    }
+  }
+  // 对所有待创建的Block进行渲染
+  renderAll(root: NodeModel, engine: Engine, contentView: HTMLElement) {
+    root = getNodeModel(root)
+    const nodeList = root.find(READY_CARD_SELECTOR)
+    this.gc()
+    nodeList.each(node => {
+      const nodeItem = getNodeModel(node)
+      const name = nodeItem.attr(READY_CARD_KEY) as string
+      const componentClass = this.componentClasses.get(name)
 
+      if (!componentClass) {
+        return
+      }
+
+      const value = this.getValue(nodeItem)
+
+      const component = this.createComponent({
+        name,
+        engine,
+        contentView,
+        value,
+      })!
+      // 替换空的占位标签
+      const blockRoot = this.create({
+        component,
+        engine,
+        contentView,
+      })
+
+      nodeItem.replaceWith(blockRoot)
+      // 重新渲染
+      this.render(component.container, component)
+    })
+  }
+  public reRenderAll(root: NodeModel, engine: Engine) {
+    root = getNodeModel(root)
+    const nodeList = root.isCard() ? root : root.find(CARD_SELECTOR)
+
+    this.gc()
+    nodeList.each(node => {
+      const blockRoot = getNodeModel(node)
+      const key = blockRoot.attr(CARD_KEY) as string;
+      const commentClass = this.componentClasses.get(key);
+      if (commentClass) {
+        let component = this.getComponent(blockRoot)
+        if (component) {
+          this.destroyComponent(component)
+        }
+        this.removeComponent(blockRoot)
+        const value = this.getValue(blockRoot)
+        component = this.createComponent({
+          name: key,
+          engine,
+          value,
+          contentView: null
+        })!
+        this.create({
+          component,
+          engine,
+          blockRoot,
+          contentView: null
+        })
+        this.render(component.container, component)
+      }
+    })
+  }
+
+  // 通过 data-card-element 的值，获取当前卡片内的 DOM 节点
+  findByKey(blockRoot: NodeModel, key: string) {
+    return this.find(blockRoot, "[".concat(CARD_ELEMENT_KEY, "=").concat(key, "]"))
+  }
+
+
+  // 更新卡片
+  updateNode(blockRoot: NodeModel, component: BlockComponentData) {
+    this.destroyComponent(component)
+    const container = this.findByKey(blockRoot, 'center')
+    container.empty()
+    this.setValue(blockRoot, component.value)
+    this.render(container, component)
+    if (component.didUpdate) {
+      component.didUpdate(component.value)
+    }
+  }
+  // 将指定节点替换成等待创建的卡片 DOM 节点
+  replaceNode(node: NodeModel, name: string, value: any) {
+    const componentClass = this.componentClasses.get(name)
+    const type = componentClass?.cardType!
+    const html = transformCustomTags(`<card type=${type} name=${name}></card>`)
+    const readyCardRoot = getNodeModel(html)
+    this.setValue(readyCardRoot, value)
+    node.before(readyCardRoot)
+    readyCardRoot.append(node)
+  }
+
+  getSingleBlockRoot(rang: RangeInterface): NodeModel | null {
+    let ancestorContainer = this.closest(rang.commonAncestorContainer)
+    if (!ancestorContainer) {
+      ancestorContainer = this.getSingleSelectedBlock(rang)!
+    }
+    return ancestorContainer || null
+  }
+
+  getSingleSelectedBlock(rang: RangeInterface) {
+    const cardRoot = this.getSingleBlockRoot(rang)
+    if (cardRoot) {
+      return cardRoot
+    }
+    return null
   }
 }

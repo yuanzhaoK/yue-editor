@@ -444,4 +444,5 @@ export const equalNode = (node: Node, otherNode: Node) => {
     return Object.keys(styles).some((key: string) => {
         return otherStyles[key]
     })
-} 
+}
+
