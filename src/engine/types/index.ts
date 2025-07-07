@@ -4,6 +4,7 @@
  * 这个文件定义了引擎层的所有核心类型，为整个编辑器提供类型安全保障
  */
 
+import { CommandInterface } from "../core/command";
 import { Engine } from "../core/engine";
 import { NodeModel } from "../core/node";
 
@@ -358,6 +359,241 @@ export interface PluginInterface {
 }
 
 /**
+ * 插件生命周期钩子
+ */
+export interface PluginLifecycle {
+  /** 插件安装时调用 */
+  onInstall?(engine: Engine): void | Promise<void>;
+
+  /** 插件卸载时调用 */
+  onUninstall?(engine: Engine): void | Promise<void>;
+
+  /** 插件启用时调用 */
+  onEnable?(engine: Engine): void | Promise<void>;
+
+  /** 插件禁用时调用 */
+  onDisable?(engine: Engine): void | Promise<void>;
+
+  /** 编辑器就绪时调用 */
+  onReady?(engine: Engine): void | Promise<void>;
+
+  /** 编辑器销毁时调用 */
+  onDestroy?(engine: Engine): void | Promise<void>;
+}
+
+/**
+ * 插件配置选项
+ */
+export interface PluginOptions {
+  /** 插件版本 */
+  version?: string;
+
+  /** 插件描述 */
+  description?: string;
+
+  /** 插件作者 */
+  author?: string;
+
+  /** 插件依赖 */
+  dependencies?: string[];
+
+  /** 热键配置 */
+  hotkeys?: Record<string, string | string[]>;
+
+  /** 插件配置 */
+  config?: Record<string, any>;
+
+  /** 是否自动启用 */
+  autoEnable?: boolean;
+
+  /** 优先级（数字越大优先级越高） */
+  priority?: number;
+}
+
+/**
+ * 完整的插件接口
+ */
+export interface Plugin extends PluginInterface, PluginLifecycle {
+  /** 插件选项 */
+  options?: PluginOptions;
+
+  /** 获取引擎实例 */
+  getEngine?(): Engine;
+
+  /** 获取配置 */
+  getConfig?<T = any>(key?: string): T;
+
+  /** 设置配置 */
+  setConfig?(key: string, value: any): void;
+
+  /** 监听事件 */
+  on?(event: string, callback: EventCallback): void;
+
+  /** 移除事件监听 */
+  off?(event: string, callback?: EventCallback): void;
+
+  /** 触发事件 */
+  emit?(event: string, ...args: any[]): void;
+
+  /** 检查是否启用 */
+  isEnabled?(): boolean;
+
+  /** 获取快捷键 */
+  getHotkeys?(): Record<string, string | string[]>;
+
+  /** 注册命令 */
+  registerCommand?(name: string, command: CommandInterface): void;
+
+  /** 注销命令 */
+  unregisterCommand?(name: string): void;
+}
+
+/**
+ * 插件构造函数
+ */
+export interface PluginConstructor {
+  new(engine: Engine, options?: PluginOptions): Plugin;
+  pluginName: string;
+  defaultOptions?: PluginOptions;
+}
+
+/**
+ * 插件元数据
+ */
+export interface PluginMetadata {
+  /** 插件名称 */
+  name: string;
+
+  /** 显示名称 */
+  displayName?: string;
+
+  /** 插件类型 */
+  type?: 'core' | 'format' | 'element' | 'tool' | 'extension';
+
+  /** 插件分类 */
+  category?: string;
+
+  /** 插件图标 */
+  icon?: string;
+
+  /** 是否为核心插件 */
+  isCore?: boolean;
+
+  /** 插件状态 */
+  status?: 'installed' | 'enabled' | 'disabled' | 'error';
+
+  /** 插件实例 */
+  instance?: Plugin;
+
+  /** 插件构造函数 */
+  constructor?: PluginConstructor;
+
+  /** 加载时间 */
+  loadTime?: number;
+
+  /** 错误信息 */
+  error?: Error;
+}
+
+/**
+ * 插件管理器接口
+ */
+export interface PluginManagerInterface {
+  /** 注册插件 */
+  register(pluginClass: PluginConstructor, options?: PluginOptions): void;
+
+  /** 批量注册插件 */
+  registerAll(plugins: PluginConstructor[]): void;
+
+  /** 安装插件 */
+  install(name: string): Promise<void>;
+
+  /** 卸载插件 */
+  uninstall(name: string): Promise<void>;
+
+  /** 启用插件 */
+  enable(name: string): Promise<void>;
+
+  /** 禁用插件 */
+  disable(name: string): Promise<void>;
+
+  /** 获取插件实例 */
+  get(name: string): Plugin | undefined;
+
+  /** 获取所有插件 */
+  getAll(): Map<string, PluginMetadata>;
+
+  /** 检查插件是否存在 */
+  has(name: string): boolean;
+
+  /** 检查插件是否启用 */
+  isEnabled(name: string): boolean;
+
+  /** 执行插件命令 */
+  execute(name: string, ...args: any[]): any;
+
+  /** 查询插件状态 */
+  queryState(name: string): boolean;
+
+  /** 初始化所有插件 */
+  initializeAll(): Promise<void>;
+
+  /** 销毁所有插件 */
+  destroyAll(): Promise<void>;
+}
+
+/**
+ * 命令类型
+ */
+export enum CommandType {
+  /** 格式命令 */
+  FORMAT = 'format',
+  /** 插入命令 */
+  INSERT = 'insert',
+  /** 删除命令 */
+  DELETE = 'delete',
+  /** 选择命令 */
+  SELECT = 'select',
+  /** 历史命令 */
+  HISTORY = 'history',
+  /** 工具命令 */
+  TOOL = 'tool'
+}
+
+/**
+ * 增强的命令接口
+ */
+export interface Command extends CommandInterface {
+  /** 命令名称 */
+  name: string;
+
+  /** 命令类型 */
+  type?: CommandType;
+
+  /** 命令描述 */
+  description?: string;
+
+  /** 快捷键 */
+  hotkey?: string | string[];
+
+  /** 是否支持撤销 */
+  undoable?: boolean;
+
+  /** 命令图标 */
+  icon?: string;
+
+  /** 工具栏配置 */
+  toolbar?: {
+    /** 工具栏位置 */
+    position?: string;
+    /** 工具栏分组 */
+    group?: string;
+    /** 工具栏顺序 */
+    order?: number;
+  };
+}
+
+/**
  * 卡片静态属性接口
  */
 export interface CardStaticInterface {
@@ -639,20 +875,19 @@ export interface LanguageInterface {
 }
 
 /**
- * 模式配置接口
+ * 模式规则接口
  */
 export interface SchemaRule {
-  /** 标签名 */
+  /** 元素名称 */
   name: string;
-
-  /** 标签类型 */
-  type: "block" | "inline" | "mark";
-
+  /** 元素类型 */
+  type: 'block' | 'inline' | 'mark';
   /** 允许的属性 */
   attributes?: string[] | Record<string, any>;
-
   /** 是否为空元素 */
   isVoid?: boolean;
+  /** 样式规则 */
+  style?: Record<string, any>;
 }
 export type ParseResult = {
   html: string;

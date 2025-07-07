@@ -210,39 +210,51 @@ const processClassName = (
   }
 };
 
-// 过滤标签、属性、样式
-// return true：过滤标签
-// return false：不过滤标签
-
-export function filter(
-  rules: Record<string, any>,
+/**
+ * 过滤不允许的元素
+ * @param schemaRules - 模式规则
+ * @param name - 元素名称
+ * @param attrs - 属性
+ * @param styles - 样式
+ * @returns 是否过滤
+ */
+export const filter = (
+  schemaRules: any,
   name: string,
   attrs: Record<string, any>,
   styles: CSSStyleDeclaration
-): boolean {
-  if (!rules) {
+): boolean => {
+  // 如果没有规则，默认不过滤
+  if (!schemaRules) {
     return false;
   }
 
+  // 特殊元素不过滤
   if (["anchor", "focus", "cursor", "card"].indexOf(name) >= 0) {
     return false;
   }
 
-  if (!rules[name]) {
+  // 如果规则中没有定义该元素，则过滤
+  if (!schemaRules[name]) {
     return true;
   }
 
-  if (!attrs) {
-    return false;
+  // 过滤属性
+  if (attrs) {
+    Object.keys(attrs).forEach((key) => {
+      filterProp(attrs, schemaRules[name], key);
+    });
   }
 
-  Object.keys(attrs).forEach(function (key) {
-    filterProp(attrs, rules[name], key);
-  });
-  const rulesStyle = rules[name].style || {};
-  Object.keys(styles).forEach(function (key) {
-    filterProp(styles, rulesStyle, key);
-  });
+  // 过滤样式
+  const rulesStyle = schemaRules[name].style || {};
+  if (styles) {
+    Object.keys(styles).forEach((key) => {
+      filterProp(styles, rulesStyle, key);
+    });
+  }
+
+  // 其他情况不过滤
   return false;
-}
+};
 

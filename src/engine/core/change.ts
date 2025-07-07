@@ -299,7 +299,7 @@ export class ChangeManager {
     let value, dom;
     if (getNodeModel(range.commonAncestorContainer).closest(CARD_CENTER_SELECTOR).length > 0) {
       if (types.includes("value")) {
-        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, this.engine).toValue()
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => {}).toValue()
       }
       if (types.includes("dom")) {
         dom = this.editArea[0].cloneNode(true)
@@ -308,7 +308,7 @@ export class ChangeManager {
     else {
       const bookmark = createBookmark(range)
       if (types.includes("value")) {
-        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, this.engine).toValue()
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => {}).toValue()
       }
       if (types.includes("dom")) {
         dom = this.editArea[0].cloneNode(true)
@@ -473,9 +473,9 @@ export class ChangeManager {
       range.collapse(true)
       this.select(range)
     } else {
-      const parser = new ParserHtml(value, this.schema, this.conversion, root => {
+      const parser = new ParserHtml(value, this.schema, this.conversion, (root: NodeModel) => {
         fetchAllChildren(root).forEach(node => {
-          removeEmptyMarksAndAddBr(getNodeModel(node))
+          removeEmptyMarksAndAddBr(node)
         })
       })
       this.editArea.html(parser.toLowerValue())

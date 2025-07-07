@@ -1,16 +1,16 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
-import { Bold, Italic, List, ListOrdered, Quote, Code, Undo, Redo } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Quote, Code, Undo, Redo, Heading1, Type, Link } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Separator } from './ui/separator';
 import { useNotesStore } from '../store/useNotesStore';
 import { useAppStore } from '../store/useAppStore';
 import { formatDate } from '../lib/utils';
-import CustomNoteEditor from './CustomNoteEditor';
+import CustomNoteEditor, { CustomNoteEditorRef } from './CustomNoteEditor';
 
 export function NoteEditor() {
   const {
@@ -24,6 +24,12 @@ export function NoteEditor() {
   const { autoSave, autoSaveInterval } = useAppStore();
   const titleRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<number>();
+  const customEditorRef = useRef<CustomNoteEditorRef>(null);
+  const [customToolbarState, setCustomToolbarState] = useState({
+    bold: false,
+    italic: false,
+    link: false
+  });
 
   const editor = useEditor({
     extensions: [
@@ -47,24 +53,18 @@ export function NoteEditor() {
     },
   });
 
-  // 防抖保存
-  const debouncedSave = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    saveTimeoutRef.current = setTimeout(() => {
-      handleSave();
-    }, autoSaveInterval);
-  }, [autoSaveInterval]);
-
-  const handleSave = async () => {
+  // 保存内容
+  const handleSave = useCallback(async () => {
     if (!currentNote || !hasUnsavedChanges) return;
 
     const title = titleRef.current?.value || currentNote.title;
-    const content =
-      currentNote.editor_type === 'tiptap' && editor
-        ? editor.getHTML()
-        : currentNote.content;
+    let content = currentNote.content;
+
+    if (currentNote.editor_type === 'tiptap' && editor) {
+      content = editor.getHTML();
+    } else if (currentNote.editor_type === 'custom' && customEditorRef.current) {
+      content = customEditorRef.current.getContent();
+    }
 
     try {
       await updateNote({
@@ -75,9 +75,105 @@ export function NoteEditor() {
     } catch (error) {
       console.error('Failed to save note:', error);
     }
-  };
+  }, [currentNote, hasUnsavedChanges, editor, updateNote]);
+
+  // 防抖保存
+  const debouncedSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = window.setTimeout(() => {
+      handleSave();
+    }, autoSaveInterval);
+  }, [autoSaveInterval, handleSave]);
 
   const handleTitleChange = () => {
+    setHasUnsavedChanges(true);
+    if (autoSave) {
+      debouncedSave();
+    }
+  };
+
+  // 更新自定义编辑器的工具栏状态
+  const updateCustomToolbarState = () => {
+    const engine = customEditorRef.current?.getEngine();
+    if (engine) {
+      setCustomToolbarState({
+        bold: engine.plugin.queryState('bold'),
+        italic: engine.plugin.queryState('italic'),
+        link: engine.plugin.queryState('link')
+      });
+    }
+  };
+
+  // 执行自定义编辑器命令
+  const executeCustomCommand = (command: string, ...args: any[]) => {
+    const engine = customEditorRef.current?.getEngine();
+    if (engine) {
+      try {
+        engine.plugin.execute(command, ...args);
+        updateCustomToolbarState();
+      } catch (error) {
+        console.error(`Failed to execute ${command}:`, error);
+      }
+    }
+  };
+
+  // 插入标题（自定义编辑器）
+  const insertHeading = (level: number) => {
+    const engine = customEditorRef.current?.getEngine();
+    if (engine) {
+      const range = engine.change.getRange();
+      if (range) {
+        engine.history.save(false, false);
+        
+        const heading = document.createElement(`h${level}`);
+        if (range.collapsed) {
+          heading.textContent = `标题 ${level}`;
+          range.insertNode(heading);
+          range.selectNodeContents(heading);
+        } else {
+          const contents = range.extractContents();
+          heading.appendChild(contents);
+          range.insertNode(heading);
+        }
+        
+        engine.change.select(range);
+        engine.history.save(true, true);
+      }
+    }
+  };
+
+  // 插入列表（自定义编辑器）
+  const insertList = (ordered: boolean = false) => {
+    const engine = customEditorRef.current?.getEngine();
+    if (engine) {
+      const range = engine.change.getRange();
+      if (range) {
+        engine.history.save(false, false);
+        
+        const list = document.createElement(ordered ? 'ol' : 'ul');
+        const li = document.createElement('li');
+        
+        if (range.collapsed) {
+          li.textContent = '列表项';
+        } else {
+          const contents = range.extractContents();
+          li.appendChild(contents);
+        }
+        
+        list.appendChild(li);
+        range.insertNode(list);
+        range.selectNodeContents(li);
+        
+        engine.change.select(range);
+        engine.history.save(true, true);
+      }
+    }
+  };
+
+  // 自定义编辑器内容变化处理
+  const handleCustomEditorChange = () => {
     setHasUnsavedChanges(true);
     if (autoSave) {
       debouncedSave();
@@ -108,7 +204,7 @@ export function NoteEditor() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleSave]); // 添加 handleSave 作为依赖
 
   // 清理定时器
   useEffect(() => {
@@ -118,6 +214,16 @@ export function NoteEditor() {
       }
     };
   }, []);
+
+  // 监听自定义编辑器的选区变化
+  useEffect(() => {
+    if (currentNote?.editor_type === 'custom') {
+      const interval = setInterval(() => {
+        updateCustomToolbarState();
+      }, 200);
+      return () => clearInterval(interval);
+    }
+  }, [currentNote]);
 
   if (!currentNote) {
     return (
@@ -166,97 +272,170 @@ export function NoteEditor() {
           className="text-lg font-semibold border-none shadow-none px-0 focus-visible:ring-0"
         />
 
-        {currentNote.editor_type === 'tiptap' && (
-          <>
-            <Separator className="my-4" />
+        <Separator className="my-4" />
 
-            {/* 格式化工具栏 */}
-            {editor && (
-              <div className="flex items-center space-x-1">
-                <Button
-                  variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => editor.chain().focus().toggleBold().run()}
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
+        {/* 根据编辑器类型显示不同的工具栏 */}
+        {currentNote.editor_type === 'tiptap' && editor && (
+          <div className="flex items-center space-x-1">
+            <Button
+              variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            >
+              <Bold className="h-4 w-4" />
+            </Button>
 
-                <Button
-                  variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => editor.chain().focus().toggleItalic().run()}
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
+            <Button
+              variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            >
+              <Italic className="h-4 w-4" />
+            </Button>
 
-                <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-6" />
 
-                <Button
-                  variant={
-                    editor.isActive('bulletList') ? 'secondary' : 'ghost'
-                  }
-                  size="sm"
-                  onClick={() =>
-                    editor.chain().focus().toggleBulletList().run()
-                  }
-                >
-                  <List className="h-4 w-4" />
-                </Button>
+            <Button
+              variant={
+                editor.isActive('bulletList') ? 'secondary' : 'ghost'
+              }
+              size="sm"
+              onClick={() =>
+                editor.chain().focus().toggleBulletList().run()
+              }
+            >
+              <List className="h-4 w-4" />
+            </Button>
 
-                <Button
-                  variant={
-                    editor.isActive('orderedList') ? 'secondary' : 'ghost'
-                  }
-                  size="sm"
-                  onClick={() =>
-                    editor.chain().focus().toggleOrderedList().run()
-                  }
-                >
-                  <ListOrdered className="h-4 w-4" />
-                </Button>
+            <Button
+              variant={
+                editor.isActive('orderedList') ? 'secondary' : 'ghost'
+              }
+              size="sm"
+              onClick={() =>
+                editor.chain().focus().toggleOrderedList().run()
+              }
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Button>
 
-                <Button
-                  variant={
-                    editor.isActive('blockquote') ? 'secondary' : 'ghost'
-                  }
-                  size="sm"
-                  onClick={() =>
-                    editor.chain().focus().toggleBlockquote().run()
-                  }
-                >
-                  <Quote className="h-4 w-4" />
-                </Button>
+            <Button
+              variant={
+                editor.isActive('blockquote') ? 'secondary' : 'ghost'
+              }
+              size="sm"
+              onClick={() =>
+                editor.chain().focus().toggleBlockquote().run()
+              }
+            >
+              <Quote className="h-4 w-4" />
+            </Button>
 
-                <Button
-                  variant={editor.isActive('code') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => editor.chain().focus().toggleCode().run()}
-                >
-                  <Code className="h-4 w-4" />
-                </Button>
+            <Button
+              variant={editor.isActive('code') ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => editor.chain().focus().toggleCode().run()}
+            >
+              <Code className="h-4 w-4" />
+            </Button>
 
-                <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-6" />
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => editor.chain().focus().undo().run()}
-                  disabled={!editor.can().undo()}
-                >
-                  <Undo className="h-4 w-4" />
-                </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+            >
+              <Undo className="h-4 w-4" />
+            </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => editor.chain().focus().redo().run()}
-                  disabled={!editor.can().redo()}
-                >
-                  <Redo className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+            >
+              <Redo className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* 自定义编辑器工具栏 */}
+        {currentNote.editor_type === 'custom' && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {/* 文本格式 */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant={customToolbarState.bold ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => executeCustomCommand('bold')}
+                title="加粗 (Ctrl/Cmd+B)"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={customToolbarState.italic ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => executeCustomCommand('italic')}
+                title="斜体 (Ctrl/Cmd+I)"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={customToolbarState.link ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => executeCustomCommand('link')}
+                title="链接 (Ctrl/Cmd+K)"
+              >
+                <Link className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* 标题 */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => insertHeading(1)}
+                title="标题 1"
+              >
+                <Heading1 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => insertHeading(2)}
+                title="标题 2"
+              >
+                <Type className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* 列表 */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => insertList(false)}
+                title="无序列表"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => insertList(true)}
+                title="有序列表"
+              >
+                <ListOrdered className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -265,7 +444,11 @@ export function NoteEditor() {
         {currentNote.editor_type === 'tiptap' ? (
           <EditorContent editor={editor} className="h-full" />
         ) : (
-          <CustomNoteEditor />
+          <CustomNoteEditor 
+            ref={customEditorRef}
+            initialContent={currentNote.content || ''}
+            onChange={handleCustomEditorChange}
+          />
         )}
       </div>
     </div>

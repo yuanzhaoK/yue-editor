@@ -32,6 +32,9 @@ import { removeMinusStyle } from '../utils/node';
 import { addOrRemoveBr } from '../utils/block';
 import { ChangeManager } from './change';
 import { HistoryManager } from './history';
+import { PluginManager } from './plugin-manager';
+import { SchemaManager } from './schema';
+import { ConversionManager } from './conversion';
 
 
 const block = new BlockManager();
@@ -97,8 +100,8 @@ export class Engine {
 
   // ========== 管理器实例 ==========
 
-
-
+  /** 插件管理器 */
+  public readonly plugin: PluginManager;
 
   /** 事件管理器 */
   public readonly event: EventModel;
@@ -133,9 +136,16 @@ export class Engine {
     close: () => { },
     restore: () => { }
   };
-  schema: any;
-  conversion: any;
-  history: HistoryManager;
+  
+  /** 模式管理器 */
+  public readonly schema: SchemaManager;
+  
+  /** 转换管理器 */
+  public readonly conversion: ConversionManager;
+  
+  /** 历史管理器 */
+  public readonly history: HistoryManager;
+  
   /**
  * 构造函数
  * @param container - 编辑器容器，可以是选择器字符串或 DOM 元素
@@ -154,10 +164,22 @@ export class Engine {
     // 初始化语言包
     this.lang = LANGUAGE_MAP[this.options.lang || 'zh-cn'];
 
+    // 初始化模式和转换管理器
+    this.schema = new SchemaManager();
+    this.conversion = new ConversionManager();
+
     // 初始化管理器
     this.event = new EventModel(this);
     this.block = new BlockManager(this);
 
+    // 初始化插件管理器
+    this.plugin = new PluginManager(this);
+
+    // 初始化 DOM 事件管理器
+    this.domEvent = new DOMEventManager(this.editArea, this.editArea.win);
+
+    // 初始化命令管理器
+    this.command = new CommandManager();
 
     // 初始化变更管理器
     this.change = new ChangeManager(this.editArea, {
@@ -176,6 +198,9 @@ export class Engine {
     this.block = new BlockManager();
 
     this.isReadonly = false;
+
+    // 初始化命令
+    this.initializeCommand();
 
     // 初始化插件
     this.initializePlugins();
@@ -270,7 +295,46 @@ export class Engine {
   }
 
   private typingKeyup(e: KeyboardEvent) {
-    throw new Error('Method not implemented.');
+    if (this.isReadonly) {
+      return;
+    }
+
+    if (this.block.closest(e.target as Node)) {
+      return;
+    }
+
+    // 触发按键释放事件
+    this.event.trigger('keyup', e);
+
+    // 特定按键的释放事件
+    switch (e.key) {
+      case 'Enter':
+        this.event.trigger('keyup:enter', e);
+        break;
+      case 'Backspace':
+        this.event.trigger('keyup:backspace', e);
+        break;
+      case 'Delete':
+        this.event.trigger('keyup:delete', e);
+        break;
+      case 'Tab':
+        this.event.trigger('keyup:tab', e);
+        break;
+      case ' ':
+        this.event.trigger('keyup:space', e);
+        break;
+      case '@':
+        this.event.trigger('keyup:at', e);
+        break;
+      case '/':
+        this.event.trigger('keyup:slash', e);
+        break;
+    }
+
+    // 更新工具栏状态（如果需要）
+    if (this.toolbar.updateState) {
+      this.toolbar.updateState();
+    }
   }
 
   private initializeEvents() {
@@ -280,6 +344,9 @@ export class Engine {
         return;
       }
       addOrRemoveBr(this.change.getRange(), 'left');
+      
+      // 保存历史记录以触发 change 事件
+      this.history.save(false, true);
     });
 
     // 点击底部区域事件
@@ -307,15 +374,185 @@ export class Engine {
   }
 
   handleClickBottomArea(e: MouseEvent) {
-    throw new Error('Method not implemented.');
+    if (this.isReadonly) {
+      return;
+    }
+
+    const target = e.target as HTMLElement;
+    const editArea = this.editArea[0] as HTMLElement;
+
+    // 检查是否点击在编辑区域的底部空白处
+    if (target === editArea || target.contains(editArea)) {
+      const rect = editArea.getBoundingClientRect();
+      const clickY = e.clientY - rect.top;
+      const contentHeight = editArea.scrollHeight;
+
+      // 如果点击位置在内容下方
+      if (clickY > contentHeight) {
+        // 将光标移动到最后
+        const range = this.change.getRange();
+        const lastChild = this.editArea.last();
+
+        if (lastChild) {
+          // 如果最后一个元素是块级元素
+          if (lastChild.isBlock()) {
+            range.selectNodeContents(lastChild[0]);
+            range.collapse(false);
+          } else {
+            // 创建一个新的段落
+            const p = new NodeModel('<p><br /></p>');
+            this.editArea.append(p);
+            range.selectNodeContents(p[0]);
+            range.collapse(false);
+          }
+        } else {
+          // 如果编辑区域为空，创建一个段落
+          const p = new NodeModel('<p><br /></p>');
+          this.editArea.append(p);
+          range.selectNodeContents(p[0]);
+          range.collapse(false);
+        }
+
+        this.change.select(range);
+        this.event.trigger('click:bottom', e);
+      }
+    }
   }
 
 
   private initializePlugins() {
-
+    // 如果配置中指定了插件，进行初始化
+    if (this.options.plugins && this.options.plugins.length > 0) {
+      // 插件将在 ready 事件中初始化
+      this.event.on('ready', () => {
+        // 异步初始化插件，但不等待
+        this.plugin.initializeAll().catch(err => {
+          console.error('Failed to initialize plugins:', err);
+        });
+      });
+    }
   }
 
   private initializeCommand() {
+    // 注册基础编辑命令
+    
+    // 撤销命令
+    this.command.add('undo', {
+      queryState: () => this.history.hasUndo,
+      execute: () => {
+        this.history.undo();
+        return false;
+      }
+    });
+
+    // 重做命令
+    this.command.add('redo', {
+      queryState: () => this.history.hasRedo,
+      execute: () => {
+        this.history.redo();
+        return false;
+      }
+    });
+
+    // 全选命令
+    this.command.add('selectAll', {
+      execute: () => {
+        const range = this.change.getRange();
+        range.selectNodeContents(this.editArea[0]);
+        this.change.select(range);
+        return false;
+      }
+    });
+
+    // 清空命令
+    this.command.add('clear', {
+      execute: () => {
+        this.setValue('');
+        return false;
+      }
+    });
+
+    // 聚焦命令
+    this.command.add('focus', {
+      execute: () => {
+        const element = this.editArea[0] as HTMLElement;
+        element.focus();
+        return false;
+      }
+    });
+
+    // 失焦命令
+    this.command.add('blur', {
+      execute: () => {
+        const element = this.editArea[0] as HTMLElement;
+        element.blur();
+        return false;
+      }
+    });
+
+    // 只读命令
+    this.command.add('readonly', {
+      queryState: () => this.isReadonly,
+      execute: (value?: boolean) => {
+        this.readonly(value !== undefined ? value : !this.isReadonly);
+        return false;
+      }
+    });
+
+    // 获取内容命令
+    this.command.add('getValue', {
+      execute: () => {
+        return this.change.getValue();
+      }
+    });
+
+    // 设置内容命令
+    this.command.add('setValue', {
+      execute: (value: string) => {
+        this.setValue(value);
+        return false;
+      }
+    });
+
+    // 获取纯文本命令
+    this.command.add('getText', {
+      execute: () => {
+        return this.editArea.text();
+      }
+    });
+
+    // 获取HTML命令
+    this.command.add('getHtml', {
+      execute: () => {
+        return this.change.getValue();
+      }
+    });
+
+    // 插入文本命令
+    this.command.add('insertText', {
+      execute: (text: string) => {
+        const range = this.change.getRange();
+        const textNode = document.createTextNode(text);
+        range.deleteContents();
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.collapse(true);
+        this.change.select(range);
+        return false;
+      }
+    });
+
+    // 插入HTML命令
+    this.command.add('insertHtml', {
+      execute: (html: string) => {
+        const range = this.change.getRange();
+        const fragment = document.createRange().createContextualFragment(html);
+        range.deleteContents();
+        range.insertNode(fragment);
+        this.change.select(range);
+        return false;
+      }
+    });
   }
 
 
@@ -359,7 +596,7 @@ export class Engine {
         } else {
           const child = nodeModel.first();
           if (child && childrenCount === 1 && child.name === 'span' &&
-            ['cursor', 'anchor', 'focus'].includes(child.attr(DAPHNE_ELEMENT) || '')) {
+            ['cursor', 'anchor', 'focus'].includes(String(child.attr(DAPHNE_ELEMENT) || ''))) {
             nodeModel.prepend('<br />');
           }
         }
@@ -392,6 +629,9 @@ export class Engine {
     this.editArea.removeAllEvents()
     this.domEvent.destroy()
     // this.block.gc()
+    
+    // 销毁插件系统
+    this.plugin.destroyAll();
   }
 
 
@@ -472,10 +712,110 @@ export class Engine {
   }
 
   setJsonValue(value: any) {
-    throw new Error('Method not implemented.');
+    // 如果传入的是字符串，尝试解析为 JSON
+    let jsonData = value;
+    if (typeof value === 'string') {
+      try {
+        jsonData = JSON.parse(value);
+      } catch (e) {
+        console.error('Invalid JSON string:', e);
+        return this;
+      }
+    }
+
+    // 将 JSON 数据转换为 HTML
+    const html = this.convertJsonToHtml(jsonData);
+    
+    // 设置内容
+    this.setValue(html);
+    
+    return this;
   }
 
-  setDefaultValue(value) {
+  /**
+   * 将 JSON 数据转换为 HTML
+   * @param jsonData - JSON 数据
+   * @returns HTML 字符串
+   * @private
+   */
+  private convertJsonToHtml(jsonData: any): string {
+    if (!jsonData) {
+      return '';
+    }
+
+    // 如果是数组，处理多个块
+    if (Array.isArray(jsonData)) {
+      return jsonData.map(item => this.convertNodeToHtml(item)).join('');
+    }
+
+    // 单个节点
+    return this.convertNodeToHtml(jsonData);
+  }
+
+  /**
+   * 将单个节点转换为 HTML
+   * @param node - 节点数据
+   * @returns HTML 字符串
+   * @private
+   */
+  private convertNodeToHtml(node: any): string {
+    if (typeof node === 'string') {
+      return node;
+    }
+
+    if (!node || typeof node !== 'object') {
+      return '';
+    }
+
+    const { type, tag, content, children, attributes, styles } = node;
+
+    // 文本节点
+    if (type === 'text') {
+      return content || '';
+    }
+
+    // 元素节点
+    const tagName = tag || type || 'div';
+    let html = `<${tagName}`;
+
+    // 添加属性
+    if (attributes && typeof attributes === 'object') {
+      Object.entries(attributes).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          html += ` ${key}="${String(value).replace(/"/g, '&quot;')}"`;
+        }
+      });
+    }
+
+    // 添加样式
+    if (styles && typeof styles === 'object') {
+      const styleStr = Object.entries(styles)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('; ');
+      if (styleStr) {
+        html += ` style="${styleStr}"`;
+      }
+    }
+
+    html += '>';
+
+    // 处理内容或子节点
+    if (content) {
+      html += content;
+    } else if (children && Array.isArray(children)) {
+      html += children.map(child => this.convertNodeToHtml(child)).join('');
+    }
+
+    // 自闭合标签
+    const voidTags = ['br', 'hr', 'img', 'input', 'meta', 'link'];
+    if (!voidTags.includes(tagName.toLowerCase())) {
+      html += `</${tagName}>`;
+    }
+
+    return html;
+  }
+
+  setDefaultValue(value: any) {
     this.history.stop()
     this.setValue(value)
     this.history.start()
