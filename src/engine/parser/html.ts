@@ -175,7 +175,7 @@ export class ParserHtml implements ParserInterface {
    * @param conversion - 转换管理器
    */
   constructor(
-    source: string,
+    source: string | Node,
     schema: any,
     conversion: any,
     onParse: (root: NodeModel) => void

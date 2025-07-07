@@ -24,6 +24,11 @@ import tooltip from '../toolbar/tooltip';
 import { copyNode } from '../utils/clipboard';
 import EmbedToolbar from '../toolbar';
 import { Engine } from './engine';
+import { shrinkRange } from '../utils/range';
+import { getClosestBlock } from '../utils/node';
+import { deleteContent } from '../changes/delete';
+import { insertBlock, insertInline } from '../changes/insert';
+import { unwrapBlock } from '../changes/utils/block';
 
 
 const dndTemplate = () => `
@@ -89,6 +94,162 @@ export const getBlockRoot = (node: Node | NodeModel) => {
  */
 export class BlockManager {
 
+  /** 卡片类映射 */
+  private blocks: Map<string, BlockComponentData> = new Map();
+
+  /** 卡片组件实例列表 */
+  public components: Map<string | number, BlockComponentData> = new Map();
+
+
+  public componentClasses: Map<string, CardStaticInterface> = new Map();
+
+  private idCache: Map<string, BlockComponentData> = new Map();
+
+  /** 编辑器引擎实例 */
+  private engine: Engine;
+
+
+  /**
+ * 构造函数
+ * @param engine - 编辑器引擎实例
+ */
+  constructor(engine?: any) {
+    this.engine = engine;
+  }
+  getOptions(cfg: Omit<BlockConfig, 'component'>) {
+    const { engine, contentView } = cfg
+    if (engine)
+      return engine.options
+    if (contentView)
+      return (contentView as any).options
+    return undefined
+  }
+
+  insertNode(range: RangeInterface, component: BlockComponentData | null, engine: any) {
+    if (!component) {
+      return
+    }
+    const isInline = component?.type === 'inline'; // const container = isInline ? $('<span />') : $('<div />');
+    // container.attr(CARD_ELEMENT_KEY, 'center');
+    // 范围为折叠状态时先删除内容
+
+    if (!range.collapsed) {
+      deleteContent(range)
+    }
+    this.gc()
+    const blockRoot = this.create({
+      component,
+      engine,
+      contentView: null
+    })
+
+    if (isInline) {
+      insertInline(range, blockRoot)
+    } else {
+      insertBlock(range, blockRoot, true)
+    }
+
+    this.focus(range, blockRoot, engine)
+    // 矫正错误 HTML 结构
+    const parent = blockRoot.parent()
+    if (parent && ['ol', 'ul', 'blockquote'].indexOf(parent.name) >= 0) {
+      unwrapBlock(range, parent)
+    }
+    this.render(component.container, component)
+    if (component.didInsert) {
+      component.didInsert(component.value)
+    }
+    return blockRoot
+  }
+
+  removeNode(blockRoot: NodeModel, engine: Engine) {
+    const component = this.getComponent(blockRoot)
+    if (component) {
+      this.destroyComponent(component)
+      if (component.type === 'block' && engine) {
+        engine.readonly(false)
+      }
+      this.removeComponent(blockRoot)
+      blockRoot.remove()
+    }
+  }
+
+
+  focusNextBlock(range: RangeInterface, blockRoot: NodeModel, hasModify: boolean) {
+    let nextBlock
+    if (blockRoot.attr(CARD_TYPE_KEY) === 'inline') {
+      const block = getClosestBlock(blockRoot)
+
+      if (block && block.isRoot()) {
+        nextBlock = blockRoot.nextElement()
+      } else {
+        nextBlock = block?.nextElement()
+      }
+    } else {
+      nextBlock = blockRoot.nextElement()
+    }
+
+    if (hasModify) {
+      if (!nextBlock || nextBlock.attr(CARD_KEY)) {
+        const _block = getNodeModel('<p><br /></p>')
+        blockRoot.after(_block)
+        range.selectNodeContents(_block[0])
+        range.collapse(false)
+        return
+      }
+    } else {
+      if (!nextBlock) {
+        return
+      }
+
+      if (nextBlock && nextBlock.attr(CARD_KEY)) {
+        this.focus(range, nextBlock, false)
+        return
+      }
+    }
+
+    range.selectNodeContents(nextBlock[0])
+    shrinkRange(range)
+    range.collapse(true)
+  }
+  focusPrevBlock(range: RangeInterface, blockRoot: NodeModel, hasModify: boolean) {
+    let prevBlock
+
+    if (blockRoot.attr(CARD_TYPE_KEY) === 'inline') {
+      const block = getClosestBlock(blockRoot)
+      if (block && block.isRoot()) {
+        prevBlock = blockRoot.prevElement()
+      } else {
+        prevBlock = block?.prevElement()
+      }
+    } else {
+      prevBlock = blockRoot.prevElement()
+    }
+
+    if (hasModify) {
+      if (!prevBlock || prevBlock.attr(CARD_KEY)) {
+        const _block = getNodeModel('<p><br /></p>')
+        blockRoot.before(_block)
+        range.selectNodeContents(_block[0])
+        range.collapse(false)
+        return
+      }
+    } else {
+      if (!prevBlock) {
+        return
+      }
+
+      if (prevBlock.attr(CARD_KEY)) {
+        this.focus(range, prevBlock, false)
+        return
+      }
+    }
+
+    range.selectNodeContents(prevBlock[0])
+    shrinkRange(range)
+    range.collapse(false)
+  }
+
   /**
    * 聚焦卡片
    * @param range - 选区
@@ -113,28 +274,8 @@ export class BlockManager {
   hideToolbar(activeBlock: NodeModel) {
     throw new Error("Method not implemented.");
   }
-  /** 卡片类映射 */
-  private blocks: Map<string, BlockComponentData> = new Map();
-
-  /** 卡片组件实例列表 */
-  public components: Map<string | number, BlockComponentData> = new Map();
 
 
-  public componentClasses: Map<string, CardStaticInterface> = new Map();
-
-  private idCache: Map<string, BlockComponentData> = new Map();
-
-  /** 编辑器引擎实例 */
-  private engine: Engine;
-
-
-  /**
- * 构造函数
- * @param engine - 编辑器引擎实例
- */
-  constructor(engine?: any) {
-    this.engine = engine;
-  }
 
   public add(name: string, component: BlockComponentData) {
     this.blocks.set(name, component);
@@ -202,7 +343,7 @@ export class BlockManager {
 
   setToolbar(cfg: BlockConfig) {
     const { blockRoot, component, engine } = cfg
-    const contentView = cfg.contentView!
+    const contentView = cfg.contentView! as any
     let config = component.embedToolbar?.() as CardToolbarItemConfig[]
 
 
@@ -403,14 +544,138 @@ export class BlockManager {
       })
     }
   }
+
   expand(conifg: Omit<BlockConfig, 'component'>) {
-    throw new Error('Method not implemented.');
+    const { blockRoot } = conifg
+    const component = this.getComponent(blockRoot!)
+    if (!component) {
+      return
+    }
+    if (component.state.collapsed === true) {
+      component.state.collapsed = false
+      if (component.expand) {
+        component.expand()
+      }
+    }
   }
   collapse(conifg: Omit<BlockConfig, 'component'>) {
-    throw new Error('Method not implemented.');
+    const { blockRoot } = conifg
+    const component = this.getComponent(blockRoot!)
+    if (!component) {
+      return
+    }
+    if (component.state.collapsed === false) {
+      component.state.collapsed = true
+      if (component.collapse)
+        component.collapse()
+    }
   }
   maximize(conifg: Omit<BlockConfig, 'component'>) {
-    throw new Error('Method not implemented.');
+    const { blockRoot, engine, contentView } = conifg
+    const { customMaximize } = this.getOptions({
+      engine,
+      contentView
+    })
+    const defalutMaximize = () => {
+      this.defalutMaximize({
+        blockRoot,
+        engine,
+        contentView
+      })
+    }
+    if (customMaximize && typeof customMaximize === 'function') {
+      customMaximize({
+        blockRoot,
+        engine,
+        contentView,
+        defalutMaximize
+      })
+    }
+    else
+      defalutMaximize()
+  }
+  private defaultRestore(cfg: Omit<BlockConfig, 'component'>) {
+    const { blockRoot, engine } = cfg
+    const component = this.getComponent(blockRoot!)
+    getNodeModel('body').css('overflow', 'auto')
+    if (!blockRoot || !component) {
+      return
+    }
+    blockRoot.removeClass(`${BRAND}-card-block-max`)
+    blockRoot.find('.header').remove()
+    if (component && component.restore) {
+      component.restore()
+    }
+
+    if (engine) {
+      const container = this.findByKey(blockRoot, 'center')
+      container.removeClass('edit')
+      engine.event.trigger('restorecard')
+      engine.history.clear()
+    } else {
+      blockRoot.find(`.${BRAND}-card-read-tool`).hide()
+    }
+    component.state.collapsed = false
+  }
+  restore(cfg: Omit<BlockConfig, 'component'>) {
+    const { blockRoot, engine, contentView } = cfg
+    const { customMaximizeRestore } = this.getOptions({
+      engine,
+      contentView
+    })
+    const defaultRestore = () => {
+      this.defaultRestore({
+        blockRoot,
+        engine,
+        contentView
+      })
+    }
+    if (customMaximizeRestore && typeof customMaximizeRestore === 'function') {
+      customMaximizeRestore({
+        blockRoot,
+        engine,
+        contentView,
+        defaultRestore
+      })
+    }
+    else
+      defaultRestore()
+  }
+
+  private defalutMaximize(conifg: Omit<BlockConfig, 'component'>) {
+    const { blockRoot, engine, contentView } = conifg
+    const component = this.getComponent(blockRoot!)
+    if (!component || !blockRoot) {
+      return
+    }
+    const lang = this.getLang({
+      engine,
+      contentView: contentView as any
+    })
+    const blockdBody = this.findByKey(blockRoot!, 'body')
+    const maximizeHeader = getNodeModel(maximizeHeaderTemplate(lang.maximize))
+    const backTrigger = maximizeHeader.find('.header-crumb')
+    blockRoot.addClass(`${BRAND}-card-block-max`)
+    backTrigger.on('click', () => {
+      this.restore({
+        blockRoot,
+        engine,
+        contentView
+      })
+    })
+    blockdBody.prepend(maximizeHeader)
+    getNodeModel('body').css('overflow', 'hidden')
+
+    if (engine) {
+      const container = this.findByKey(blockRoot, 'center')
+      container.addClass('edit')
+      engine.event.trigger('maximizeCard')
+      engine.history.clear()
+    }
+    component.state.collapsed = true
+    if (component.expand) {
+      component.expand()
+    }
   }
   showCardToolbar(blockRoot: NodeModel) {
     const toolbarNode = blockRoot.find('.daphne-card-toolbar')
@@ -443,12 +708,27 @@ export class BlockManager {
     return getBlockRoot(node)
   }
 
-
-
+  copyContent(cfg: Omit<BlockConfig, 'component'>) {
+    const { blockRoot } = cfg
+    const component = this.getComponent(blockRoot!)!
+    if (component.copyContent) {
+      component.copyContent()
+    }
+  }
+  /**
+   * 判断是否为内联卡片
+   * @param blockRoot - 卡片根节点
+   * @returns 是否为内联卡片
+   */
   isInline(blockRoot: NodeModel) {
     return blockRoot && blockRoot.length !== 0 && "inline" === blockRoot.attr(CARD_TYPE_KEY)
   }
 
+  /**
+   * 判断是否为块级卡片
+   * @param blockRoot - 卡片根节点
+   * @returns 是否为块级卡片
+   */
   isBlock(blockRoot: NodeModel) {
     return blockRoot && blockRoot.length !== 0 && "block" === blockRoot.attr(CARD_TYPE_KEY)
   }
@@ -578,7 +858,7 @@ export class BlockManager {
       }
     })
   }
-  private createComponent(cfg: Omit<BlockConfig, 'component'>): BlockComponentData | null {
+  public createComponent(cfg: Omit<BlockConfig, 'component'>): BlockComponentData | null {
     const { name, engine, contentView } = cfg
     let { value } = cfg
     const componentClass = this.componentClasses.get(name!)! as CardStaticInterface
@@ -621,7 +901,7 @@ export class BlockManager {
     }
   }
   // 对所有待创建的Block进行渲染
-  renderAll(root: NodeModel, engine: Engine, contentView: HTMLElement) {
+  renderAll(root: NodeModel, engine: Engine, contentView: HTMLElement | null) {
     root = getNodeModel(root)
     const nodeList = root.find(READY_CARD_SELECTOR)
     this.gc()

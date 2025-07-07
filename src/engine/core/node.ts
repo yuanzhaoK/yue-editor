@@ -690,42 +690,42 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 是否为空元素
    */
-  isVoid(): boolean {
+  public isVoid(): boolean {
     return !!VOID_TAG_MAP[this.name];
   }
 
   /**
    * 是否为实体元素
    */
-  isSolid(): boolean {
+  public isSolid(): boolean {
     return !!SOLID_TAG_MAP[this.name];
   }
 
   /**
    * 是否为标题元素
    */
-  isHeading(): boolean {
+  public isHeading(): boolean {
     return !!HEADING_TAG_MAP[this.name];
   }
 
   /**
    * 是否为标题
    */
-  isTitle(): boolean {
+  public isTitle(): boolean {
     return !!TITLE_TAG_MAP[this.name];
   }
 
   /**
    * 是否为表格元素
    */
-  isTable(): boolean {
+  public isTable(): boolean {
     return !!TABLE_TAG_MAP[this.name];
   }
 
   /**
    * 是否为根元素
    */
-  isRoot(): boolean {
+  public isRoot(): boolean {
     return this.attr(ROOT_KEY) === ROOT;
   }
 
@@ -734,7 +734,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 是否可编辑
    */
-  isEditable(): boolean {
+  public isEditable(): boolean {
     if (this.isRoot()) {
       return false;
     }
@@ -748,7 +748,7 @@ export class NodeModel implements NodeModelInterface {
    * @param eventType - 事件类型
    * @param listener - 事件监听器
    */
-  on(eventType: string, listener: EventCallback): NodeModelInterface {
+  public on(eventType: string, listener: EventCallback): NodeModelInterface {
     this.each((node, index) => {
       node.addEventListener(eventType, listener);
       this.events.get(index.toString())?.on(eventType, listener);
@@ -761,7 +761,7 @@ export class NodeModel implements NodeModelInterface {
    * @param eventType - 事件类型
    * @param listener - 可选的事件监听器
    */
-  off(eventType: string, listener?: EventCallback): NodeModelInterface {
+  public off(eventType: string, listener?: EventCallback): NodeModelInterface {
     this.each((node, index) => {
       if (listener) {
         node.removeEventListener(eventType, listener as EventListener);
@@ -776,7 +776,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 移除所有事件
    */
-  removeAllEvents(): NodeModelInterface {
+  public removeAllEvents(): NodeModelInterface {
     this.each((node, index) => {
       this.events.get(index.toString())?.destroy();
       this.events.delete(index.toString());
@@ -790,7 +790,7 @@ export class NodeModel implements NodeModelInterface {
    * 获取边界矩形
    * @param defaultValue - 默认值
    */
-  getBoundingClientRect(defaultValue?: DOMRect): DOMRect {
+  public getBoundingClientRect(defaultValue?: DOMRect): DOMRect {
     if (this.length === 0) {
       return defaultValue || new DOMRect();
     }
@@ -805,7 +805,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取偏移位置
    */
-  offset(): { top: number; left: number } {
+  public offset(): { top: number; left: number } {
     if (this.length === 0) {
       return { top: 0, left: 0 };
     }
@@ -824,9 +824,9 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取或设置 HTML 内容
    */
-  html(): string;
-  html(val: string): NodeModelInterface;
-  html(val?: string): string | NodeModelInterface {
+  public html(): string;
+  public html(val: string): NodeModelInterface;
+  public html(val?: string): string | NodeModelInterface {
     if (val !== undefined) {
       // 设置 HTML
       this.each((node) => {
@@ -849,7 +849,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 获取文本内容
    */
-  text(): string {
+  public text(): string {
     if (this.length === 0) {
       return "";
     }
@@ -865,7 +865,7 @@ export class NodeModel implements NodeModelInterface {
    * 显示元素
    * @param display - 显示类型
    */
-  show(display?: string): NodeModelInterface {
+  public show(display?: string): NodeModelInterface {
     this.each((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as HTMLElement;
@@ -878,7 +878,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 隐藏元素
    */
-  hide(): NodeModelInterface {
+  public hide(): NodeModelInterface {
     this.each((node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as HTMLElement;
@@ -895,7 +895,7 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 移除元素
    */
-  remove(): NodeModelInterface {
+  public remove(): NodeModelInterface {
     this.each((node) => {
       if (node.parentNode) {
         node.parentNode.removeChild(node);
@@ -907,41 +907,41 @@ export class NodeModel implements NodeModelInterface {
   /**
    * 清空内容
    */
-  empty(): NodeModelInterface {
+  public empty(): NodeModel {
     this.each((node) => {
       while (node.firstChild) {
         node.removeChild(node.firstChild);
       }
     });
-    return this as NodeModelInterface;
+    return this as NodeModel;
   }
 
   /**
    * 克隆节点
    * @param deep - 是否深度克隆
    */
-  clone(deep?: boolean): NodeModelInterface {
+  public clone(deep?: boolean): NodeModel {
     if (this.length === 0) {
-      return new NodeModel([]) as NodeModelInterface;
+      return new NodeModel([]) as NodeModel;
     }
 
     const cloned = this[0].cloneNode(deep !== false);
-    return new NodeModel(cloned) as NodeModelInterface;
+    return new NodeModel(cloned) as NodeModel;
   }
 
   /**
    * 在开头插入内容
    * @param content - 内容
    */
-  prepend(
+  public prepend(
     content: string | Node | NodeModel | NodeModelInterface
   ): NodeModelInterface {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()
         : typeof content === "string"
-        ? exprToNodes(content)
-        : [content as Node];
+          ? exprToNodes(content)
+          : [content as Node];
 
     this.each((node) => {
       nodes.forEach((newNode) => {
@@ -961,15 +961,15 @@ export class NodeModel implements NodeModelInterface {
    * 在末尾插入内容
    * @param content - 内容
    */
-  append(
+  public append(
     content: string | Node | NodeModel | NodeModelInterface
   ): NodeModelInterface {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()
         : typeof content === "string"
-        ? exprToNodes(content)
-        : [content as Node];
+          ? exprToNodes(content)
+          : [content as Node];
 
     this.each((node) => {
       nodes.forEach((newNode) => {
@@ -985,15 +985,15 @@ export class NodeModel implements NodeModelInterface {
    * 在前面插入内容
    * @param content - 内容
    */
-  before(
+  public before(
     content: string | Node | NodeModel | NodeModelInterface
   ): NodeModelInterface {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()
         : typeof content === "string"
-        ? exprToNodes(content)
-        : [content as Node];
+          ? exprToNodes(content)
+          : [content as Node];
 
     this.each((node) => {
       if (node.parentNode) {
@@ -1011,15 +1011,15 @@ export class NodeModel implements NodeModelInterface {
    * 在后面插入内容
    * @param content - 内容
    */
-  after(
+  public after(
     content: string | Node | NodeModel | NodeModelInterface
   ): NodeModelInterface {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()
         : typeof content === "string"
-        ? exprToNodes(content)
-        : [content as Node];
+          ? exprToNodes(content)
+          : [content as Node];
 
     this.each((node) => {
       if (node.parentNode) {
@@ -1042,15 +1042,15 @@ export class NodeModel implements NodeModelInterface {
    * 替换内容
    * @param content - 内容
    */
-  replaceWith(
+  public replaceWith(
     content: string | Node | NodeModel | NodeModelInterface
   ): NodeModelInterface {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()
         : typeof content === "string"
-        ? exprToNodes(content)
-        : [content as Node];
+          ? exprToNodes(content)
+          : [content as Node];
 
     this.each((node) => {
       if (node.parentNode && nodes.length > 0) {
@@ -1067,6 +1067,7 @@ export class NodeModel implements NodeModelInterface {
 
     return new NodeModel(nodes) as NodeModelInterface;
   }
+
 }
 
 export default (

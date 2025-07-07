@@ -85,6 +85,9 @@ export interface BlockState {
 
   /** 是否有焦点 */
   focused: boolean;
+
+  /** 是否折叠 */
+  collapsed: boolean;
 }
 
 /**
@@ -104,16 +107,16 @@ export interface CardValue {
 export interface CardToolbarItemConfig {
   /** 工具栏项类型 */
   type:
-    | "button"
-    | "dropdown"
-    | "separator"
-    | "dnd"
-    | "copy"
-    | "delete"
-    | "maximize"
-    | "node"
-    | "collapse"
-    | "expand";
+  | "button"
+  | "dropdown"
+  | "separator"
+  | "dnd"
+  | "copy"
+  | "delete"
+  | "maximize"
+  | "node"
+  | "collapse"
+  | "expand";
 
   /** 标题 */
   title?: string;
@@ -127,16 +130,16 @@ export interface CardToolbarItemConfig {
 export interface CardToolbarItem {
   /** 工具栏项类型 */
   type:
-    | "button"
-    | "dropdown"
-    | "separator"
-    | "dnd"
-    | "copy"
-    | "delete"
-    | "maximize"
-    | "node"
-    | "collapse"
-    | "expand";
+  | "button"
+  | "dropdown"
+  | "separator"
+  | "dnd"
+  | "copy"
+  | "delete"
+  | "maximize"
+  | "node"
+  | "collapse"
+  | "expand";
 
   node: NodeModel;
 
@@ -751,13 +754,22 @@ export interface BlockComponentData {
 
   didUpdate?: (value: any) => void;
 
+  copyContent?: () => void;
+
+  didInsert?: (value: any) => void;
+
+  expand?: () => void;
+
+  collapse?: () => void;
+
+  restore?: () => void;
 }
 
 export interface BlockConfig {
   name?: string;
   component: BlockComponentData;
   engine: any;
-  contentView: HTMLElement | null;
+  contentView: HTMLElement | NodeModel | null;
   blockRoot?: NodeModel;
   node?: NodeModel;
   value?: string | Record<string, any>

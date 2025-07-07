@@ -5,6 +5,7 @@
  */
 
 import { CARD_KEY, READY_CARD_KEY } from "../constants";
+import { ANCHOR, CURSOR, DAPHNE_ELEMENT, FOCUS } from "../constants/bookmark";
 import getNodeModel, { NodeModel } from "../core/node"
 
 
@@ -207,12 +208,12 @@ export function isEditableNode(node: Node): boolean {
  * @param node - 起始节点
  * @returns 最近的块级祖先节点
  */
-export function getClosestBlock(node: Node): Element | null {
-    let current: Node | null = node;
+export function getClosestBlock(node: NodeModel): NodeModel | null {
+    let current: Node | null = node[0];
 
     while (current && current.nodeType !== Node.DOCUMENT_NODE) {
         if (current.nodeType === Node.ELEMENT_NODE && isBlockNode(current)) {
-            return current as Element;
+            return getNodeModel(current);
         }
         current = current.parentNode;
     }
@@ -446,3 +447,28 @@ export const equalNode = (node: Node, otherNode: Node) => {
     })
 }
 
+
+// 移除占位符 \u200B
+export const removeZeroWidthSpace = (root: NodeModel) => {
+    walkTree(root, (node: NodeModel) => {
+        if (node[0].nodeType !== Node.TEXT_NODE) {
+            return false
+        }
+        const text = node[0].nodeValue
+        if (text && text.length !== 2) {
+            return
+        }
+        if (text && text.charCodeAt(1) === 0x200B &&
+            node[0].nextSibling &&
+            node[0].nextSibling.nodeType === Node.ELEMENT_NODE &&
+            [ANCHOR, FOCUS, CURSOR].indexOf((node[0].nextSibling as Element).getAttribute(DAPHNE_ELEMENT) || '') >= 0) {
+            return
+        }
+
+        if (text && text.charCodeAt(0) === 0x200B) {
+            const textNode = node[0] as Text
+            const newNode = textNode.splitText(1)
+            newNode.parentNode?.removeChild(newNode.previousSibling!)
+        }
+    })
+}

@@ -305,6 +305,7 @@ export class Engine {
       this.event.trigger('blur');
     });
   }
+
   handleClickBottomArea(e: MouseEvent) {
     throw new Error('Method not implemented.');
   }

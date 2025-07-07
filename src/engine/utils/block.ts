@@ -22,7 +22,7 @@ export const getClosestBlock = (node: Node) => {
 }
 
 
-export const addOrRemoveBr = (range: Range, align: string) => {
+export const addOrRemoveBr = (range: RangeInterface, align?: string) => {
   const block = getClosestBlock(range.commonAncestorContainer)
   block.find('br').each(function (br) {
     const brModel = getNodeModel(br)!

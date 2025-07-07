@@ -1,15 +1,16 @@
 import { BlockComponentData, CardType, EventCallback, RangeInterface } from "../types";
 import { getActiveMarks } from "../utils/mark";
 import { getActiveBlocks } from "../utils/block";
-import { fetchAllChildren, getWindow } from "../utils/node";
+import { fetchAllChildren, getWindow, isEmptyNodeWithTrim } from "../utils/node";
 import { BlockManager } from "./block";
 import DOMEventManager from "./dom-event";
 import { HistoryManager } from "./history";
 import getNodeModel, { NodeModel } from "./node";
-import { shrinkRange } from "../utils/range";
-import { BRAND, ROOT_SELECTOR } from "../constants";
+import { createBookmark, moveToBookmark, shrinkRange, upRange } from "../utils/range";
+import { BRAND, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_TYPE_KEY, ROOT_SELECTOR } from "../constants";
 import { ParserHtml } from "../parser/html";
 import { removeEmptyMarksAndAddBr } from "../changes/utils/mark";
+import { ANCHOR_SELECTOR, CURSOR_SELECTOR, FOCUS_SELECTOR } from "../constants/bookmark";
 
 /**
  * 变更管理器配置选项
@@ -200,15 +201,85 @@ export class ChangeManager {
     }
     return this.getSelectionRange()
   }
-
   insertInline(br: NodeModel) {
     throw new Error("Method not implemented.");
   }
-  insertBlock(br: NodeModel) {
-    throw new Error("Method not implemented.");
+  private focusRang(range: RangeInterface) {
+    const node = getNodeModel(range.startContainer)
+    const startOffset = range.startOffset
+    const blockRoot = this.block.closest(node)
+    if (blockRoot) {
+      const node_center = blockRoot.find(CARD_CENTER_SELECTOR)[0]
+      if (node_center && (!node.isElement() || node[0].parentNode !== blockRoot[0] || node.attr(CARD_ELEMENT_KEY))) {
+        const comparePoint = () => {
+          const doc_rang = document.createRange()
+          doc_rang.selectNodeContents(node_center)
+          return doc_rang.comparePoint(node[0], startOffset) < 0
+        }
+
+        if ("inline" === blockRoot.attr(CARD_TYPE_KEY)) {
+          range.selectNode(blockRoot[0])
+          range.collapse(comparePoint())
+          return
+        }
+
+        if (comparePoint()) {
+          this.block.focusPrevBlock(range, blockRoot, true)
+        } else {
+          this.block.focusNextBlock(range, blockRoot, true)
+        }
+      }
+    }
+  }
+  private repairRange(range: RangeInterface) {
+    // 判断 Range 是否可编辑，不可编辑时焦点自动移到编辑区域内
+    const ancestor = getNodeModel(range.commonAncestorContainer)
+    if (!ancestor.isRoot() && !ancestor.isEditable()) {
+      range.selectNodeContents(this.editArea[0])
+      shrinkRange(range)
+      range.collapse(false)
+    }
+
+    let rangeClone = range.cloneRange()
+    rangeClone.collapse(true)
+    this.focusRang(rangeClone)
+    range.setStart(rangeClone.startContainer, rangeClone.startOffset)
+
+    rangeClone = range.cloneRange()
+    rangeClone.collapse(false)
+    this.focusRang(rangeClone)
+    range.setEnd(rangeClone.endContainer, rangeClone.endOffset)
+
+    if (range.collapsed) {
+      rangeClone = range.cloneRange()
+      upRange(rangeClone)
+
+      const startNode = getNodeModel(rangeClone.startContainer)
+      const startOffset = rangeClone.startOffset
+
+      if (startNode.name === "a" && startOffset === 0) {
+        range.setStartBefore(startNode[0])
+      }
+      if (startNode.name === "a" && startOffset === startNode[0].childNodes.length) {
+        range.setStartAfter(startNode[0])
+      }
+      range.collapse(true)
+    }
+  }
+  // 插入并渲染Block
+  insertBlock(name: string, value: string) {
+    const component = this.block.createComponent({
+      name,
+      value,
+      engine: this.engine,
+      contentView: null
+    })
+    const range = this.getRange()
+    this.repairRange(range)
+    const blockRoot = this.block.insertNode(range, component, this.engine)
   }
   getValue() {
-    return ''
+    return this.getValueAndDOM(['value']).value || ''
   }
 
   getSelection() {
@@ -223,10 +294,30 @@ export class ChangeManager {
     return this
   }
 
-  getValueAndDOM() {
+  getValueAndDOM(types: string[] = ['value', 'dom']) {
+    const range = this.getRange()
+    let value, dom;
+    if (getNodeModel(range.commonAncestorContainer).closest(CARD_CENTER_SELECTOR).length > 0) {
+      if (types.includes("value")) {
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, this.engine).toValue()
+      }
+      if (types.includes("dom")) {
+        dom = this.editArea[0].cloneNode(true)
+      }
+    }
+    else {
+      const bookmark = createBookmark(range)
+      if (types.includes("value")) {
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, this.engine).toValue()
+      }
+      if (types.includes("dom")) {
+        dom = this.editArea[0].cloneNode(true)
+      }
+      moveToBookmark(range, bookmark)
+    }
     return {
-      value: this.getValue(),
-      dom: this.editArea[0]
+      value,
+      dom
     }
   }
 
@@ -374,8 +465,7 @@ export class ChangeManager {
    * 设置编辑器内容
    * @param value - HTML 内容
    */
-  setValue(value: string) {
-    value = value || ''
+  setValue(value: string = '') {
     const range = this.getRange()
 
     if (value === '') {
@@ -389,11 +479,35 @@ export class ChangeManager {
         })
       })
       this.editArea.html(parser.toLowerValue())
-      this.block.renderAll(this.editArea, this.engine)
-      // this.card.renderAll(this.editArea, this.engine)
+      this.block.renderAll(this.editArea, this.engine, null)
+      const cursor = this.editArea.find(CURSOR_SELECTOR)
+      let bookmark
+      if (cursor.length > 0) {
+        bookmark = {
+          anchor: cursor[0],
+          focus: cursor[0]
+        }
+      }
+      const anchor = this.editArea.find(ANCHOR_SELECTOR)
+      const focus = this.editArea.find(FOCUS_SELECTOR)
+
+      if (anchor.length > 0 && focus.length > 0) {
+        bookmark = {
+          anchor: anchor[0],
+          focus: focus[0]
+        }
+      }
+      if (bookmark) {
+        moveToBookmark(range, bookmark)
+        this.select(range)
+      }
     }
 
     this.onSetValue(value)
     this.history.save(false)
+  }
+
+  isEmpty() {
+    return isEmptyNodeWithTrim(this.editArea[0])
   }
 }

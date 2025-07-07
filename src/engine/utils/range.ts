@@ -5,7 +5,73 @@
  */
 
 import { RangeInterface } from '../types';
+import getNodeModel, { NodeModel } from "../core/node"
+import { removeZeroWidthSpace } from './node';
+import { CARD_LEFT_SELECTOR, CARD_RIGHT_SELECTOR, CARD_TYPE_KEY } from '../constants';
+import { EDGE, SAFARI } from './ua';
 
+// 具有 block css 属性的行内卡片
+const inlineCardHasBlockStyle = (cardRoot: NodeModel) => {
+  return cardRoot.attr(CARD_TYPE_KEY) === 'inline' && cardRoot.css('display') === 'block';
+}
+
+// 扩大选区到可编辑内容
+// <p><strong><span>[123</span>abc]</strong>def</p>
+// to
+// <p>[<strong><span>123</span>abc</strong>]def</p>
+/**
+ * 扩大选区到可编辑内容
+ * @param range - 选区对象
+ * @param toBlock - 是否扩大到块级元素
+ */
+export const enlargeRange = (range: RangeInterface, toBlock: boolean = false) => {
+  upRange(range)
+
+  const enlargePosition = (node: NodeModel, pos: number, isStart: boolean) => {
+    node = getNodeModel(node)
+    if ((node.type === Node.TEXT_NODE || node.isSolid() || !toBlock && node.isBlock()) || node.isRoot()) {
+      return
+    }
+    let parent
+    if (pos === 0) {
+      while (!node.prev()) {
+        parent = node.parent()
+        if (!parent || parent.isSolid() || !toBlock && parent.isBlock()) {
+          break
+        }
+        if (!parent.isEditable()) {
+          break
+        }
+        node = parent
+      }
+
+      if (isStart) {
+        range.setStartBefore(node[0])
+      } else {
+        range.setEndBefore(node[0])
+      }
+    } else if (pos === node.children().length) {
+      while (!node.next()) {
+        parent = node.parent()
+        if (!parent || parent.isSolid() || !toBlock && parent.isBlock()) {
+          break
+        }
+        if (!parent.isEditable()) {
+          break
+        }
+        node = parent
+      }
+
+      if (isStart) {
+        range.setStartAfter(node[0])
+      } else {
+        range.setEndAfter(node[0])
+      }
+    }
+  }
+  enlargePosition(getNodeModel(range.startContainer), range.startOffset, true)
+  enlargePosition(getNodeModel(range.endContainer), range.endOffset, false)
+}
 /**
  * 收缩选区到可编辑内容
  * @param range - 选区对象
@@ -98,24 +164,70 @@ export function createBookmark(range: RangeInterface): { anchor: Node; focus: No
  * @param bookmark - 书签对象
  */
 export function moveToBookmark(range: RangeInterface, bookmark: { anchor: Node; focus: Node }): void {
+  if (!bookmark) return;
+
   const { anchor, focus } = bookmark;
 
   if (anchor === focus) {
-    // 折叠选区
-    range.setStartAfter(anchor);
-    range.collapse(true);
-  } else {
-    // 非折叠选区
-    range.setStartAfter(anchor);
-    range.setEndBefore(focus);
-  }
+    const cursor = getNodeModel(bookmark.anchor)
+    const _parent = cursor.parent()!
+    removeZeroWidthSpace(_parent)
+    _parent[0].normalize()
+    let isCardCursor = false
+    const prevNode = cursor.prev()
+    const nextNode = cursor.next()
+    // 具有 block css 属性的行内卡片，不调整光标位置
+    if (prevNode && prevNode.isCard() && !inlineCardHasBlockStyle(prevNode)) {
+      const cardRight = prevNode.find(CARD_RIGHT_SELECTOR)
+      if (cardRight.length > 0) {
+        range.selectNodeContents(cardRight[0])
+        range.collapse(false)
+        isCardCursor = true
+      }
+    } else if (nextNode && nextNode.isCard() && !inlineCardHasBlockStyle(nextNode)) {
+      const cardLeft = nextNode.find(CARD_LEFT_SELECTOR)
+      if (cardLeft.length > 0) {
+        range.selectNodeContents(cardLeft[0])
+        range.collapse(false)
+        isCardCursor = true
+      }
+    }
 
-  // 清除书签标记
-  if (anchor.parentNode) {
-    anchor.parentNode.removeChild(anchor);
+    if (!isCardCursor) {
+      range.setStartBefore(cursor[0])
+      range.collapse(true)
+    }
+
+    if (EDGE) {
+      _parent[0].normalize()
+      cursor.remove()
+    } else {
+      cursor.remove()
+      _parent[0].normalize()
+    }
+    return
   }
-  if (focus !== anchor && focus.parentNode) {
-    focus.parentNode.removeChild(focus);
+  // collapsed = false
+  // range start
+  const anchorNode = getNodeModel(bookmark.anchor)
+  let parent = anchorNode.parent()!
+
+  removeZeroWidthSpace(parent)
+  range.setStartBefore(anchorNode[0])
+  anchorNode.remove()
+  parent[0].normalize()
+  // range end
+  const focusNode = getNodeModel(bookmark.focus)
+  parent = focusNode.parent()!
+  removeZeroWidthSpace(parent)
+  range.setEndBefore(focusNode[0])
+  focusNode.remove()
+  parent[0].normalize()
+
+  if (SAFARI) {
+    const selection = window.getSelection()
+    selection!.removeAllRanges()
+    selection!.addRange(range)
   }
 }
 
@@ -313,4 +425,59 @@ export function createRangeFromElement(element: Element): RangeInterface {
   const range = document.createRange() as RangeInterface;
   range.selectNodeContents(element);
   return range;
+}
+
+
+// 获取开始位置前的节点
+// <strong>foo</strong>|bar
+export const getPrevNode = (range: RangeInterface) => {
+  upRange(range)
+  const sc = getNodeModel(range.startContainer)
+  const so = range.startOffset
+
+  if (sc.isText()) {
+    return
+  }
+  const childNodes = sc.children()
+  if (childNodes.length === 0) {
+    return
+  }
+  return childNodes.eq(so - 1)
+}
+
+// 获取结束位置后的节点
+// foo|<strong>bar</strong>
+export const getNextNode = (range: RangeInterface) => {
+  upRange(range)
+  const ec = getNodeModel(range.endContainer)
+  const eo = range.endOffset
+
+  if (ec.isText()) {
+    return
+  }
+  const childNodes = ec.children()
+  if (childNodes.length === 0) {
+    return
+  }
+  return childNodes.eq(eo)
+}
+
+export const deepCut = (range: RangeInterface) => {
+  if (!range.collapsed)
+    range.extractContents()
+  const startNode = getNodeModel(range.startContainer)
+  if (!startNode.isRoot()) {
+    let node = getNodeModel(range.startContainer)
+    if (!node.isRoot()) {
+      let parentNode = node.parent()
+      while (parentNode && !parentNode.isRoot()) {
+        node = parentNode
+        parentNode = parentNode.parent()
+      }
+      range.setEndAfter(node[0])
+      const contents = range.extractContents()
+      range.insertNode(contents)
+      range.collapse(true)
+    }
+  }
 }
