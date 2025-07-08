@@ -24,7 +24,7 @@ import langZHCN from '../lang/zh-cn';
 import { NodeModel } from './node';
 import EventModel, { AsyncEventModel } from './event';
 import DOMEventManager from './dom-event';
-import CommandManager from './command';
+import { CommandManager } from './command-manager';
 import { CARD_SELECTOR, ROOT, ROOT_KEY } from '../constants';
 import { DAPHNE_ELEMENT } from '../constants/bookmark';
 import { createBookmark, moveToBookmark } from '../utils/range';
@@ -136,16 +136,16 @@ export class Engine {
     close: () => { },
     restore: () => { }
   };
-  
+
   /** 模式管理器 */
   public readonly schema: SchemaManager;
-  
+
   /** 转换管理器 */
   public readonly conversion: ConversionManager;
-  
+
   /** 历史管理器 */
   public readonly history: HistoryManager;
-  
+
   /**
  * 构造函数
  * @param container - 编辑器容器，可以是选择器字符串或 DOM 元素
@@ -175,11 +175,11 @@ export class Engine {
     // 初始化插件管理器
     this.plugin = new PluginManager(this);
 
-    // 初始化 DOM 事件管理器
-    this.domEvent = new DOMEventManager(this.editArea, this.editArea.win);
+    // // 初始化 DOM 事件管理器
+    // this.domEvent = new DOMEventManager(this.editArea, this.editArea.win);
 
     // 初始化命令管理器
-    this.command = new CommandManager();
+    this.command = new CommandManager(this);
 
     // 初始化变更管理器
     this.change = new ChangeManager(this.editArea, {
@@ -191,6 +191,9 @@ export class Engine {
       onSelect: () => this.event.trigger('select'),
       onSetValue: () => this.event.trigger('setvalue')
     });
+
+    this.domEvent = this.change.domEvent
+
     this.history = this.change.history
 
     this.asyncEvent = new AsyncEventModel(this);
@@ -344,7 +347,7 @@ export class Engine {
         return;
       }
       addOrRemoveBr(this.change.getRange(), 'left');
-      
+
       // 保存历史记录以触发 change 事件
       this.history.save(false, true);
     });
@@ -435,7 +438,7 @@ export class Engine {
 
   private initializeCommand() {
     // 注册基础编辑命令
-    
+
     // 撤销命令
     this.command.add('undo', {
       queryState: () => this.history.hasUndo,
@@ -629,7 +632,7 @@ export class Engine {
     this.editArea.removeAllEvents()
     this.domEvent.destroy()
     // this.block.gc()
-    
+
     // 销毁插件系统
     this.plugin.destroyAll();
   }
@@ -725,10 +728,10 @@ export class Engine {
 
     // 将 JSON 数据转换为 HTML
     const html = this.convertJsonToHtml(jsonData);
-    
+
     // 设置内容
     this.setValue(html);
-    
+
     return this;
   }
 

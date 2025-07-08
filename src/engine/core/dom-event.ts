@@ -55,6 +55,8 @@ export class DOMEventManager {
   /** 文档事件处理器映射 */
   private documentHandlers: Map<string, Set<EventHandler>> = new Map();
 
+  public copySource?: string;
+
   /**
    * 构造函数
    * @param editArea - 编辑区域

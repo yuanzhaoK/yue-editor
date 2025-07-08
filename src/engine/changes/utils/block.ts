@@ -10,10 +10,12 @@
 // <p></p>
 
 import { RangeInterface } from "../../types";
-import { getClosestBlock, getDocument, unwrapNode } from "../../utils/node";
+import { getClosestBlock, getDocument, isEmptyNode, unwrapNode } from "../../utils/node";
 import getNodeModel, { NodeModel } from "../../core/node";
-import { BRAND, CARD_KEY } from "@/engine/constants";
+import { BRAND, CARD_KEY, INDENT_KEY } from "@/engine/constants";
 import { createBookmark, moveToBookmark } from "@/engine/utils/range";
+import { DAPHNE_ELEMENT } from "@/engine/constants/bookmark";
+import { getRangeBlocks } from "@/engine/utils/block";
 
 export const addOrRemoveBr = (range: RangeInterface, align: string) => {
   const block = getClosestBlock(getNodeModel(range.commonAncestorContainer))
@@ -150,3 +152,153 @@ export function unwrapBlock(range: RangeInterface, blockRoot: string | NodeModel
   moveToBookmark(range, bookmark)
   return range
 }
+
+
+/**
+ * br 换行改成段落
+ * @param block 
+ * @returns 
+ */
+export const brToParagraph = (block: NodeModel) => {
+  // 没有子节点
+  if (!block.first()) {
+    return
+  }
+  // 只有一个节点
+  if (block.children().length === 1) {
+    return
+  }
+  if (block.isTable())
+    return
+  if ("li" === block.name)
+    return
+  // 只有一个节点（有光标标记节点）
+  if (block.children().length === 2 && block.first()?.attr(DAPHNE_ELEMENT) === 'cursor' || block.last()?.attr(DAPHNE_ELEMENT) === 'cursor') {
+    return
+  }
+
+  let container
+  let prevContainer
+  let node = block.first()
+
+  while (node) {
+    const next = node.next()
+    if (!container || node.name === 'br') {
+      prevContainer = container
+      container = block.clone(false)
+      block.before(container)
+    }
+    if (node.name !== 'br') {
+      container.append(node)
+    }
+    if ((node.name === 'br' || !next) && prevContainer && !prevContainer.first()) {
+      prevContainer.append('<br />')
+    }
+    node = next
+  }
+
+  if (container && !container.first()) {
+    container.remove()
+  }
+  block.remove()
+}
+
+
+
+// ol 添加 start 属性
+// 有序列表序号修正策略：连续的列表会对有序列表做修正，不连续的不做修正
+export const addListStartNumber = (rangeNode: NodeModel, range: RangeInterface) => {
+  let block;
+  if (["ol", "ul"].includes(rangeNode.name)) {
+    block = rangeNode
+  } else {
+    const blocks = getRangeBlocks(range)
+    if (blocks.length === 0)
+      return rangeNode
+    block = blocks[0].closest('ul,ol')
+    if (!block[0])
+      return rangeNode
+  }
+  const startIndent = parseInt(block.attr(INDENT_KEY) as string, 10) || 0
+  // 当前选区起始位置如果不是第一层级，需要向前遍历，找到各层级的前序序号
+  // 直到遇到一个非列表截止，比如 p
+
+  let startCache: any[] = [];
+  let cacheIndent = startIndent
+  let prevNode = block.prev()
+
+  while (prevNode && ['ol', 'ul'].includes(prevNode.name)) {
+    if (prevNode.name === 'ol') {
+      const prevIndent = parseInt(prevNode.attr(INDENT_KEY) as string, 10) || 0
+      const prevStart = parseInt(prevNode.attr('start') as string, 10) || 1
+      const len = prevNode.find('li').length
+
+      if (prevIndent === 0) {
+        startCache[prevIndent] = prevStart + len
+        break
+      }
+      if (prevIndent <= cacheIndent) {
+        cacheIndent = prevIndent
+        startCache[prevIndent] = startCache[prevIndent] || prevStart + len
+      }
+    } else
+      cacheIndent = parseInt(prevNode.attr(INDENT_KEY) as string, 10) || 0
+    prevNode = prevNode.prev()
+  }
+
+  let nextNode = block
+  while (nextNode) {
+    if (['ol', 'ul'].includes(nextNode.name)) {
+      const nextIndent = parseInt(nextNode.attr(INDENT_KEY) as string, 10) || 0
+      const nextStart = parseInt(nextNode.attr('start') as string, 10)
+      const _len = nextNode.find('li').length
+
+      if (nextNode.name === 'ol') {
+        let currentStart = startCache[nextIndent];
+        if (nextIndent > 0) {
+          currentStart = currentStart || 1
+          if (currentStart > 1)
+            nextNode.attr("start", currentStart)
+          else
+            nextNode.removeAttr("start")
+          startCache[nextIndent] = currentStart + _len
+        } else {
+          if (currentStart && currentStart !== nextStart) {
+            if (currentStart > 1)
+              nextNode.attr("start", currentStart)
+            else
+              nextNode.removeAttr("start")
+            startCache[nextIndent] = currentStart + _len
+          } else {
+            startCache[nextIndent] = (nextStart || 1) + _len
+            startCache = startCache.slice(0, nextIndent + 1)
+          }
+        }
+      }
+    } else
+      startCache = []
+
+    nextNode = nextNode.next()!
+  }
+}
+
+
+export const isBlockLastOffset = (range: RangeInterface, edge: 'start' | 'end') => {
+  const container = getNodeModel(range[`${edge}Container` as keyof RangeInterface] as any)
+  const offset = range[`${edge}Offset` as keyof RangeInterface] as number
+  const newRange = range.cloneRange()
+  const block = getClosestBlock(container)
+  if (!block) return false
+  newRange.selectNodeContents(block[0])
+  newRange.setStart(container[0], offset)
+  const fragment = newRange.cloneContents()
+
+  if (!fragment.firstChild) {
+    return true
+  }
+
+  const node = getNodeModel('<div />')
+  node.append(fragment)
+
+  return !(node.find('br').length > 0) && isEmptyNode(node[0])
+} 

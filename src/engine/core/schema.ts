@@ -5,6 +5,7 @@
  */
 
 import { SchemaRule } from '../types';
+import lodashCloneDeep from 'lodash-es/cloneDeep';
 
 /**
  * 模式管理器类
@@ -150,7 +151,7 @@ export class SchemaManager {
    */
   getValue(): any {
     const rulesObj: any = {};
-    
+
     // 将规则转换为兼容格式
     this.rules.forEach((rule, name) => {
       rulesObj[name] = {
@@ -161,5 +162,18 @@ export class SchemaManager {
     });
 
     return rulesObj;
+  }
+
+  public addRules(rules: SchemaRule[]): void {
+    rules.forEach(rule => {
+      this.addRule(rule);
+    });
+  }
+
+  public clone() {
+    const dupData = lodashCloneDeep(this.rules)
+    const dupSchema = new SchemaManager()
+    dupSchema.rules = dupData
+    return dupSchema
   }
 } 

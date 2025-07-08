@@ -11,6 +11,7 @@ import { BRAND, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_TYPE_KEY, ROOT_SELE
 import { ParserHtml } from "../parser/html";
 import { removeEmptyMarksAndAddBr } from "../changes/utils/mark";
 import { ANCHOR_SELECTOR, CURSOR_SELECTOR, FOCUS_SELECTOR } from "../constants/bookmark";
+import { insertFragment } from "../changes/insert";
 
 /**
  * 变更管理器配置选项
@@ -129,14 +130,13 @@ export class ChangeManager {
     this.engine = options.engine;
     this.schema = options.schema;
     this.conversion = options.conversion;
-    this.block = options.block;
+    this.block = options.block || new BlockManager(this.engine);
     this.onChange = options.onChange;
     this.onSelect = options.onSelect;
     this.onSetValue = options.onSetValue;
     this.activeBlock = undefined
     this.blocks = [];
     this.marks = [];
-
     // 初始化窗口和文档对象
     this.win = getWindow(editArea[0]);
     this.doc = editArea.doc;
@@ -278,6 +278,14 @@ export class ChangeManager {
     this.repairRange(range)
     const blockRoot = this.block.insertNode(range, component, this.engine)
   }
+
+  insertFragment(fragment: Node, callback: () => void) {
+    const range = this.getRange()
+    this.repairRange(range)
+    this.select(range)
+    insertFragment(range, this.block, fragment, callback)
+  }
+
   getValue() {
     return this.getValueAndDOM(['value']).value || ''
   }
@@ -299,7 +307,7 @@ export class ChangeManager {
     let value, dom;
     if (getNodeModel(range.commonAncestorContainer).closest(CARD_CENTER_SELECTOR).length > 0) {
       if (types.includes("value")) {
-        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => {}).toValue()
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => { }).toValue()
       }
       if (types.includes("dom")) {
         dom = this.editArea[0].cloneNode(true)
@@ -308,7 +316,7 @@ export class ChangeManager {
     else {
       const bookmark = createBookmark(range)
       if (types.includes("value")) {
-        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => {}).toValue()
+        value = new ParserHtml(this.editArea[0], this.schema, this.conversion, () => { }).toValue()
       }
       if (types.includes("dom")) {
         dom = this.editArea[0].cloneNode(true)

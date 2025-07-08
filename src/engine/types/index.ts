@@ -849,7 +849,7 @@ export interface NodeModelInterface {
   empty(): NodeModelInterface;
 
   /** 克隆节点 */
-  clone(deep?: boolean): NodeModelInterface;
+  clone(deep?: boolean): NodeModel;
 
   /** 在开头插入内容 */
   prepend(content: string | Node | NodeModelInterface): NodeModelInterface;

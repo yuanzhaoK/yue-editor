@@ -346,7 +346,7 @@ export function unwrapNode(node: Node): void {
  * @param node - 要包装的节点
  * @param wrapper - 包装节点
  */
-export function wrapNode(node: Node, wrapper: Element): void {
+export function wrapNode(node: Node, wrapper: Node): void {
     if (!node.parentNode) return;
 
     const parent = node.parentNode;
@@ -471,4 +471,21 @@ export const removeZeroWidthSpace = (root: NodeModel) => {
             newNode.parentNode?.removeChild(newNode.previousSibling!)
         }
     })
+}
+
+/**
+ *  删除两边的 BR
+ * @param node 
+ */
+export const removeSideBr = (node: NodeModel) => {
+    // 删除第一个 BR
+    const firstNode = node.first()
+    if (firstNode && firstNode.name === 'br' && node.children().length > 1) {
+        firstNode.remove()
+    }
+    // 删除最后一个 BR
+    const lastNode = node.last()
+    if (lastNode && lastNode.name === 'br' && node.children().length > 1) {
+        lastNode.remove()
+    }
 }

@@ -1,9 +1,9 @@
 import getNodeModel, { NodeModel } from "../core/node"
 
-export const mergeNode = (nodeElement: Node, otherNodeElement: Node, isRemove: boolean = false) => {
+export const mergeNode = (nodeElement: NodeModel, otherNodeElement: NodeModel, isRemove: boolean = false) => {
 
-  let node = getNodeModel(nodeElement)
-  let otherNode = getNodeModel(otherNodeElement)
+  let node = nodeElement
+  let otherNode = otherNodeElement
 
   if (otherNode.isText()) {
     node.append(otherNode)

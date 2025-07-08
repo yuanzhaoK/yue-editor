@@ -638,7 +638,7 @@ export class PluginManager implements PluginManagerInterface {
         }
 
         // 触发引擎事件
-        this.engine.event.trigger(`plugin:${name}:${event}`, args);
+        this.engine.event.trigger(`plugin:${name}:${event}`, args.length === 1 ? args[0] : args);
       };
     }
   }
@@ -659,11 +659,9 @@ export class PluginManager implements PluginManagerInterface {
    */
   private registerPluginCommands(name: string, instance: Plugin): void {
     // 将插件作为命令注册到命令管理器
-    // 暂时注释掉，等待 CommandManager 实现完整接口
-    /*
     if (this.engine.command && instance.execute) {
       this.engine.command.register(name, {
-        execute: (...args: any[]) => instance.execute!(...args),
+        execute: () => instance.execute!(),
         queryState: instance.queryState ? () => instance.queryState!() : undefined,
         queryValue: instance.queryValue ? () => instance.queryValue!() : undefined,
         queryEnabled: instance.isEnabled ? () => instance.isEnabled!() : undefined
@@ -680,7 +678,6 @@ export class PluginManager implements PluginManagerInterface {
         originalRegister.call(instance, cmdName, command);
       };
     }
-    */
   }
 
   /**
@@ -688,8 +685,6 @@ export class PluginManager implements PluginManagerInterface {
    * @param name - 插件名称
    */
   private unregisterPluginCommands(name: string): void {
-    // 暂时注释掉，等待 CommandManager 实现完整接口
-    /*
     if (this.engine.command) {
       // 注销主命令
       this.engine.command.unregister(name);
@@ -702,7 +697,6 @@ export class PluginManager implements PluginManagerInterface {
         }
       }
     }
-    */
   }
 
   /**

@@ -1,9 +1,23 @@
+import { BlockManager } from "../core/block"
 import getNodeModel, { NodeModel } from "../core/node"
 import { RangeInterface } from "../types"
 import { addOrRemoveBr } from "../utils/block"
-import { getClosestBlock, getDocument, isEmptyNode } from "../utils/node"
-import { createBookmark, enlargeRange, moveToBookmark, shrinkRange } from "../utils/range"
+import { getClosestBlock, getDocument, isEmptyNode, wrapNode } from "../utils/node"
+import { createBookmark, deepCut, enlargeRange, moveToBookmark, shrinkRange } from "../utils/range"
 import { deleteContent } from "./delete"
+import { mergeNode } from "./merge"
+import { isBlockLastOffset } from "./utils/block"
+
+function getFirstChild(node: Node): Node {
+  let child = node.firstChild
+  if (!child) return node
+  if (!getNodeModel(child).isBlock())
+    return node
+  while (child && ["blockquote", "ul", "ol"].includes(getNodeModel(child).name)) {
+    child = child.firstChild
+  }
+  return child!
+}
 
 export const insertNode = (range: RangeInterface, node: NodeModel) => {
   node = getNodeModel(node)
@@ -119,3 +133,103 @@ export const insertBlock = (range: RangeInterface, block: NodeModel, noEmptyBloc
   insertNode(range, block)
   return range
 }
+
+
+export const insertFragment = (range: RangeInterface, block: BlockManager, fragment: Node, callback?: () => void) => {
+  const firstBlock = getClosestBlock(getNodeModel(range.startContainer))
+  const lastBlock = getClosestBlock(getNodeModel(range.endContainer))
+  const blockquoteNode = firstBlock?.closest("blockquote")
+  const childNodes = fragment.childNodes
+  const firstNode = getNodeModel(fragment).first()!
+  if (!range.collapsed) {
+    deleteContent(range, (lastBlock?.[0] === firstBlock?.[0] || !isBlockLastOffset(range, "end")))
+  }
+  if (!firstNode[0]) return range
+  if (!firstNode.isBlock() && !firstNode.isCard()) {
+    shrinkRange(range)
+    range.insertNode(fragment)
+    range.collapse(false)
+    return range
+  }
+  deepCut(range)
+  const startNode = range.startContainer.childNodes[range.startOffset - 1]
+  const startNode1 = range.startContainer.childNodes[range.startOffset]
+  if (blockquoteNode?.[0] && childNodes.length > 0) {
+    childNodes.forEach((node: any) => {
+      if ("blockquote" !== getNodeModel(node).name) {
+        wrapNode(node, blockquoteNode.clone(false)[0])
+      }
+    })
+  }
+  insertNode(range, block.closest(firstBlock!)!)
+  if (blockquoteNode?.[0] && startNode) {
+    const _firstNode = getNodeModel(getFirstChild(startNode.nextSibling!))
+    const _lastNode = getNodeModel(getLastChild(startNode))
+    if (isListChild(_lastNode, _firstNode)) {
+      clearList(_lastNode, _firstNode)
+      mergeNode(_lastNode, _firstNode, false)
+      removeEmptyNode(_firstNode)
+    } else {
+      if (isEmptyNode(_lastNode[0]) || isEmptyListItem(_lastNode)) {
+        removeEmptyNode(_lastNode)
+      }
+    }
+  }
+
+  if (startNode1) {
+    const prevNode = getNodeModel(getLastChild(startNode1.previousSibling!)),
+      nextNode = getNodeModel(getFirstChild(startNode1))
+    range.selectNodeContents(prevNode[0])
+    shrinkRange(range)
+    range.collapse(false)
+    if (isEmptyNode(nextNode[0])) {
+      removeEmptyNode(nextNode)
+    }
+    else if (isListChild(prevNode, nextNode)) {
+      mergeNode(prevNode, nextNode, false)
+      removeEmptyNode(nextNode)
+    }
+  }
+  mergeAdjacentBlockquote(range)
+  mergeAdjacentList(range)
+  if (callback)
+    callback()
+  return range
+}
+
+function getLastChild(node: Node): Node {
+  let child = node.lastChild!
+  if (!getNodeModel(child).isBlock()) return node
+  while (["blockquote", "ul", "ol"].includes(getNodeModel(child).name)) {
+    child = child.lastChild!
+  }
+  return child
+}
+function isListChild(_lastNode: NodeModel, _firstNode: NodeModel) {
+  return "p" === _firstNode.name || _lastNode.name === _firstNode.name && !("li" === _lastNode.name && !isSameList(_lastNode.parent()!, _firstNode.parent()!))
+
+}
+
+function isSameList(lastNode: NodeModel, firstNode: NodeModel): boolean {
+  return lastNode.name === firstNode.name && !("li" === lastNode.name && !isSameList(lastNode.parent()!, firstNode.parent()!))
+}
+function clearList(_lastNode: NodeModel, _firstNode: NodeModel) {
+  throw new Error("Function not implemented.")
+}
+
+function removeEmptyNode(_firstNode: NodeModel) {
+  throw new Error("Function not implemented.")
+}
+
+function isEmptyListItem(_lastNode: NodeModel): boolean {
+  throw new Error("Function not implemented.")
+}
+
+function mergeAdjacentBlockquote(range: RangeInterface) {
+  throw new Error("Function not implemented.")
+}
+
+function mergeAdjacentList(range: RangeInterface) {
+  throw new Error("Function not implemented.")
+}
+

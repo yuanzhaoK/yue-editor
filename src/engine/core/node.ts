@@ -569,17 +569,17 @@ export class NodeModel implements NodeModelInterface {
    * 查找最近的祖先节点
    * @param selector - CSS 选择器
    */
-  closest(selector: string): NodeModelInterface {
+  closest(selector: string): NodeModel {
     let current: Node | null = this[0];
 
     while (current && current.nodeType === Node.ELEMENT_NODE) {
       if (isMatchesSelector(current as Element, selector)) {
-        return new NodeModel(current) as NodeModelInterface;
+        return new NodeModel(current) as NodeModel;
       }
       current = current.parentNode;
     }
 
-    return new NodeModel([]) as NodeModelInterface;
+    return new NodeModel([]) as NodeModel;
   }
 
   // ========== 遍历和访问方法 end==========
