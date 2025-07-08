@@ -12,12 +12,22 @@ import { useAppStore } from './store/useAppStore';
 import { useNotesStore } from './store/useNotesStore';
 import { initDatabase } from './lib/database';
 import { ContextMenuProvider } from './components/ui/context-menu';
+import { EditorTestPage } from './pages/EditorTestPage';
 
 function App() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const { applyTheme, theme } = useAppStore();
   const { loadCategories, loadNotes, createNote } = useNotesStore();
+
+  // 检查是否是测试页面
+  const isTestPage = window.location.search.includes('test=true') || 
+                     window.location.pathname.includes('/test');
+
+  // 如果是测试页面，直接返回测试组件
+  if (isTestPage) {
+    return <EditorTestPage />;
+  }
 
   useEffect(() => {
     // 初始化主题
@@ -46,7 +56,7 @@ function App() {
     };
 
     initApp();
-  }, []); // 只在组件挂载时执行一次
+  }, []);
 
   useEffect(() => {
     // 监听全局快捷键事件
@@ -94,7 +104,7 @@ function App() {
         cleanupShortcuts();
       }
     };
-  }, []); // 只在组件挂载时设置一次
+  }, []);
 
   return (
     <AlertDialogProvider>
