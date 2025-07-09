@@ -1,3 +1,3 @@
-import { BRAND } from "@/engine/constants";
+import { ROOT } from "./root";
 
-export const INDENT_KEY = `data-${BRAND}-indent`
+export const INDENT_KEY = `data-${ROOT}-indent`;

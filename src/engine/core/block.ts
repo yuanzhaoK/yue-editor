@@ -19,7 +19,7 @@ import {
   NodeModelInterface
 } from '../types';
 import { decodeCardValue, encodeCardValue, randomId, transformCustomTags } from '../utils/string';
-import { BRAND, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_KEY, CARD_LEFT_SELECTOR, CARD_RIGHT_SELECTOR, CARD_SELECTOR, CARD_TYPE_KEY, CARD_VALUE_KEY, READY_CARD_KEY, READY_CARD_SELECTOR } from '../constants';
+import { ROOT, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_KEY, CARD_LEFT_SELECTOR, CARD_RIGHT_SELECTOR, CARD_SELECTOR, CARD_TYPE_KEY, CARD_VALUE_KEY, READY_CARD_KEY, READY_CARD_SELECTOR } from '../constants';
 import tooltip from '../toolbar/tooltip';
 import { copyNode } from '../utils/clipboard';
 import EmbedToolbar from '../toolbar';
@@ -268,7 +268,7 @@ export class BlockManager {
   }
 
   showToolbar(blockRoot: NodeModel) {
-    this.find(blockRoot, `.${BRAND}-card-dnd`).addClass(`${BRAND}-card-dnd-active`)
+    this.find(blockRoot, `.${ROOT}-card-dnd`).addClass(`${ROOT}-card-dnd-active`)
     this.showCardToolbar(blockRoot)
   }
   hideToolbar(activeBlock: NodeModel) {
@@ -601,7 +601,7 @@ export class BlockManager {
     if (!blockRoot || !component) {
       return
     }
-    blockRoot.removeClass(`${BRAND}-card-block-max`)
+    blockRoot.removeClass(`${ROOT}-card-block-max`)
     blockRoot.find('.header').remove()
     if (component && component.restore) {
       component.restore()
@@ -613,7 +613,7 @@ export class BlockManager {
       engine.event.trigger('restorecard')
       engine.history.clear()
     } else {
-      blockRoot.find(`.${BRAND}-card-read-tool`).hide()
+      blockRoot.find(`.${ROOT}-card-read-tool`).hide()
     }
     component.state.collapsed = false
   }
@@ -655,7 +655,7 @@ export class BlockManager {
     const blockdBody = this.findByKey(blockRoot!, 'body')
     const maximizeHeader = getNodeModel(maximizeHeaderTemplate(lang.maximize))
     const backTrigger = maximizeHeader.find('.header-crumb')
-    blockRoot.addClass(`${BRAND}-card-block-max`)
+    blockRoot.addClass(`${ROOT}-card-block-max`)
     backTrigger.on('click', () => {
       this.restore({
         blockRoot,

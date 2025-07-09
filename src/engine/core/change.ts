@@ -7,7 +7,7 @@ import DOMEventManager from "./dom-event";
 import { HistoryManager } from "./history";
 import getNodeModel, { NodeModel } from "./node";
 import { createBookmark, moveToBookmark, shrinkRange, upRange } from "../utils/range";
-import { BRAND, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_TYPE_KEY, ROOT_SELECTOR } from "../constants";
+import { ROOT, CARD_CENTER_SELECTOR, CARD_ELEMENT_KEY, CARD_TYPE_KEY, ROOT_SELECTOR } from "../constants";
 import { ParserHtml } from "../parser/html";
 import { removeEmptyMarksAndAddBr } from "../changes/utils/mark";
 import { ANCHOR_SELECTOR, CURSOR_SELECTOR, FOCUS_SELECTOR } from "../constants/bookmark";
@@ -393,7 +393,7 @@ export class ChangeManager {
     }
     if (selected) {
       if (!component.state.selected) {
-        component.blockRoot.addClass(`${BRAND}-selected`)
+        component.blockRoot.addClass(`${ROOT}-selected`)
         if (component.select) {
           component.select()
         }

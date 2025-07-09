@@ -2,7 +2,7 @@
 import tinycolor2 from 'tinycolor2'
 import { BasePlugin } from "@/engine/core/base-plugin";
 import { ParserHtml } from "@/engine/parser/html";
-import { BRAND, CARD_SELECTOR, READY_CARD_KEY, READY_CARD_SELECTOR, ROOT_SELECTOR } from '@/engine/constants';
+import { ROOT, CARD_SELECTOR, READY_CARD_KEY, READY_CARD_SELECTOR, ROOT_SELECTOR } from '@/engine/constants';
 import { fetchAllChildren, isEmptyNodeWithTrim, removeMinusStyle, removeSideBr, unwrapNode } from '@/engine/utils/node';
 import getNodeModel, { NodeModel } from '@/engine/core/node';
 import { addListStartNumber, brToParagraph } from '@/engine/changes/utils/block';
@@ -162,7 +162,7 @@ class Paste extends BasePlugin {
       if (['ol', 'ul'].indexOf(node.name) >= 0 && node.parent()?.name === 'li' && (node.prev() || node.next())) {
         const parent = node.parent()
         let li: NodeModel | null = null;
-        const hasList = parent?.parent()?.hasClass(`${BRAND}-list`)
+        const hasList = parent?.parent()?.hasClass(`${ROOT}-list`)
         parent?.children().each(child => {
           let childModel = getNodeModel(child)
           if (isEmptyNodeWithTrim(childModel[0])) {

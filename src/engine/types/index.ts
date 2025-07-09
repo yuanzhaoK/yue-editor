@@ -625,7 +625,7 @@ export interface CardInterface {
   value: CardValue;
 
   /** 卡片状态 */
-  state: CardState;
+  state: BlockState;
 
   /** 渲染方法 */
   render(): NodeModelInterface | HTMLElement;

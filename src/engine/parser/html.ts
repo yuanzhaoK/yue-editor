@@ -7,7 +7,7 @@
 
 import getNodeModel, { NodeModel } from "../core/node";
 import { ParserInterface, ParseResult } from "../types";
-import { BRAND, VOID_TAG_MAP } from "../constants";
+import { ROOT, VOID_TAG_MAP } from "../constants";
 import { removeUnit, toHex, transformCustomTags } from "../utils/string";
 import { DAPHNE_ELEMENT } from "../constants/bookmark";
 import transform, { filter } from "./transform";
@@ -422,7 +422,7 @@ export class ParserHtml implements ParserInterface {
   }
   shouldSerializeAttribute(name: string, value: string) {
     // 过滤内部属性
-    if (name.startsWith(`data-${BRAND}-`)) {
+    if (name.startsWith(`data-${ROOT}-`)) {
       return false;
     }
 

@@ -12,7 +12,7 @@
 import { RangeInterface } from "../../types";
 import { getClosestBlock, getDocument, isEmptyNode, unwrapNode } from "../../utils/node";
 import getNodeModel, { NodeModel } from "../../core/node";
-import { BRAND, CARD_KEY, INDENT_KEY } from "@/engine/constants";
+import { ROOT, CARD_KEY, INDENT_KEY } from "@/engine/constants";
 import { createBookmark, moveToBookmark } from "@/engine/utils/range";
 import { DAPHNE_ELEMENT } from "@/engine/constants/bookmark";
 import { getRangeBlocks } from "@/engine/utils/block";
@@ -36,7 +36,7 @@ export const addOrRemoveBr = (range: RangeInterface, align: string) => {
     return;
   }
 
-  if (block.children().length === 2 && block.first()?.attr(CARD_KEY) === 'checkbox' && block.last()?.attr(`data-${BRAND}-element`) === 'cursor') {
+  if (block.children().length === 2 && block.first()?.attr(CARD_KEY) === 'checkbox' && block.last()?.attr(`data-${ROOT}-element`) === 'cursor') {
     block.first()?.after('<br />')
   }
 }

@@ -4,7 +4,6 @@
  * 导出所有常量定义
 */
 
-export const BRAND = 'daphne'
 export * from './card';
 export * from './conversion';
 export * from './mime';
