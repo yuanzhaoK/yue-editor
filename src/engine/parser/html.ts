@@ -176,9 +176,9 @@ export class ParserHtml implements ParserInterface {
    */
   constructor(
     source: string | Node,
-    schema: any,
-    conversion: any,
-    onParse: (root: NodeModel) => void
+    schema?: any,
+    conversion?: any,
+    onParse?: (root: NodeModel) => void
   ) {
     this.schemaRules = schema ? schema.getValue() : null;
     this.conversionRules = conversion ? conversion.getValue() : null;

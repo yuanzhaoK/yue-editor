@@ -5,9 +5,8 @@
  * 支持同步和异步事件处理
  */
 
-import { EventCallback, AsyncEventCallback } from '../types';
-import { Engine } from './engine';
-
+import { EventCallback, AsyncEventCallback } from "../types";
+import { Engine } from "./engine";
 
 interface EventListener {
   callback: EventCallback;
@@ -29,9 +28,8 @@ interface EventListener {
  */
 
 export class EventModel {
-
   /** 事件监听器映射 */
-  protected listeners: Map<string, EventListener[]> = new Map()
+  protected listeners: Map<string, EventListener[]> = new Map();
 
   public readonly engine: Engine;
 
@@ -46,21 +44,27 @@ export class EventModel {
    * @param callback - 事件回调函数
    * @param once - 是否只触发一次
    * @param rewrite - 是否覆盖已有的监听器
-   * 
+   *
    * */
-  on<T extends any>(eventType: string, callback: EventCallback<T>, rewrite?: boolean): void {
+  on<T extends any>(
+    eventType: string,
+    callback: EventCallback<T>,
+    rewrite?: boolean
+  ): void {
     if (!this.listeners.has(eventType)) {
-      this.listeners.set(eventType, [])
+      this.listeners.set(eventType, []);
     }
-    const listeners = this.listeners.get(eventType)
+    const listeners = this.listeners.get(eventType);
 
     if (rewrite) {
-      this.listeners.set(eventType, [{
-        callback,
-        rewrite: true
-      }])
+      this.listeners.set(eventType, [
+        {
+          callback,
+          rewrite: true,
+        },
+      ]);
     } else {
-      listeners?.push({ callback })
+      listeners?.push({ callback });
     }
   }
 
@@ -76,8 +80,8 @@ export class EventModel {
     const listeners = this.listeners.get(eventType);
     listeners?.push({
       callback,
-      once: true
-    })
+      once: true,
+    });
   }
 
   /**
@@ -86,7 +90,7 @@ export class EventModel {
    * @param data - 事件数据
    * @returns 是否继续传播事件
    */
-  trigger<T extends any>(eventType: string, data?: T): boolean {
+  trigger<T extends any>(eventType: string, data?: T, ...rest: any[]): boolean {
     if (!this.listeners.has(eventType)) {
       return true;
     }
@@ -94,14 +98,14 @@ export class EventModel {
     const listenersToRemove: EventListener[] = [];
     for (const listener of listeners) {
       try {
-        const result = listener.callback(data)
+        const result = listener.callback(data, ...rest);
         // 如果返回 false，则停止传播事件
         if (result === false) {
-          return false
+          return false;
         }
         // 如果是一次性事件，则移除监听器
         if (listener.once) {
-          listenersToRemove.push(listener)
+          listenersToRemove.push(listener);
         }
       } catch (error) {
         console.error(`Error in event listener for "${eventType}":`, error);
@@ -109,7 +113,7 @@ export class EventModel {
     }
     if (listenersToRemove.length > 0) {
       const remainingListeners = listeners.filter(
-        listener => !listenersToRemove.includes(listener)
+        (listener) => !listenersToRemove.includes(listener)
       );
 
       if (remainingListeners.length === 0) {
@@ -118,13 +122,14 @@ export class EventModel {
         this.listeners.set(eventType, remainingListeners);
       }
     }
-    return true
+    return true;
   }
 
   hasListeners(eventType: string): boolean {
-    return this.listeners.has(eventType) && this.listeners.get(eventType)!.length > 0
+    return (
+      this.listeners.has(eventType) && this.listeners.get(eventType)!.length > 0
+    );
   }
-
 
   /**
    * 获取指定事件的监听器数量
@@ -132,7 +137,9 @@ export class EventModel {
    * @returns 监听器数量
    */
   getListenerCount(eventType: string): number {
-    return this.listeners.has(eventType) ? this.listeners.get(eventType)!.length : 0;
+    return this.listeners.has(eventType)
+      ? this.listeners.get(eventType)!.length
+      : 0;
   }
 
   /**
@@ -144,14 +151,14 @@ export class EventModel {
   }
 
   /**
- * 销毁事件模型
- */
+   * 销毁事件模型
+   */
   destroy(): void {
     this.clear();
   }
   /**
-    * 清除所有事件监听器
-    */
+   * 清除所有事件监听器
+   */
   clear(): void {
     this.listeners.clear();
   }
@@ -164,7 +171,9 @@ export class EventModel {
   off<T extends any>(eventType: string, callback?: EventCallback<T>): void {
     const listeners = this.listeners.get(eventType) || [];
     if (callback) {
-      const index = listeners.findIndex(listener => listener.callback === callback);
+      const index = listeners.findIndex(
+        (listener) => listener.callback === callback
+      );
       if (index !== -1) {
         listeners.splice(index, 1);
       }
@@ -178,26 +187,28 @@ export class EventModel {
 
   removeOnce(eventType: string): void {
     const listeners = this.listeners.get(eventType) || [];
-    listeners.forEach(listener => {
+    listeners.forEach((listener) => {
       if (listener.once) {
         this.off(eventType, listener.callback);
       }
-    })
+    });
   }
 }
-
 
 export class AsyncEventModel extends EventModel {
   constructor(engine: Engine) {
     super(engine);
   }
   /**
-     * 触发异步事件
-     * @param eventType - 事件类型
-     * @param data - 事件数据
-     * @returns Promise，解析为是否继续传播事件
-     */
-  async triggerAsync<T extends any>(eventType: string, data?: T): Promise<boolean> {
+   * 触发异步事件
+   * @param eventType - 事件类型
+   * @param data - 事件数据
+   * @returns Promise，解析为是否继续传播事件
+   */
+  async triggerAsync<T extends any>(
+    eventType: string,
+    data?: T
+  ): Promise<boolean> {
     if (!this.hasListeners(eventType)) {
       return true;
     }
@@ -218,13 +229,16 @@ export class AsyncEventModel extends EventModel {
           listenersToRemove.push(listener);
         }
       } catch (error) {
-        console.error(`Error in async event listener for "${eventType}":`, error);
+        console.error(
+          `Error in async event listener for "${eventType}":`,
+          error
+        );
       }
     }
     // 移除一次性监听器
     if (listenersToRemove.length > 0) {
       const remainingListeners = listeners.filter(
-        listener => !listenersToRemove.includes(listener)
+        (listener) => !listenersToRemove.includes(listener)
       );
 
       if (remainingListeners.length === 0) {
@@ -237,29 +251,35 @@ export class AsyncEventModel extends EventModel {
   }
 
   /**
- * 并行触发异步事件
- * @param eventType - 事件类型
- * @param data - 事件数据
- * @returns Promise，解析为所有监听器的结果
- */
+   * 并行触发异步事件
+   * @param eventType - 事件类型
+   * @param data - 事件数据
+   * @returns Promise，解析为所有监听器的结果
+   */
 
-  async triggerParallel<T extends any>(eventType: string, data?: T): Promise<(void | boolean)[]> {
+  async triggerParallel<T extends any>(
+    eventType: string,
+    data?: T
+  ): Promise<(void | boolean)[]> {
     if (!this.hasListeners(eventType)) {
       return [];
     }
     const listeners = this.listeners.get(eventType)!;
-    const promises = listeners.map(listener =>
-      Promise.resolve(listener.callback(data)).catch(error => {
-        console.error(`Error in parallel event listener for "${eventType}":`, error);
+    const promises = listeners.map((listener) =>
+      Promise.resolve(listener.callback(data)).catch((error) => {
+        console.error(
+          `Error in parallel event listener for "${eventType}":`,
+          error
+        );
         return undefined;
       })
     );
     const results = await Promise.all(promises);
 
     // 移除一次性监听器
-    const listenersToRemove = listeners.filter(listener => listener.once);
+    const listenersToRemove = listeners.filter((listener) => listener.once);
     if (listenersToRemove.length > 0) {
-      const remainingListeners = listeners.filter(listener => !listener.once);
+      const remainingListeners = listeners.filter((listener) => !listener.once);
 
       if (remainingListeners.length === 0) {
         this.listeners.delete(eventType);
@@ -270,7 +290,6 @@ export class AsyncEventModel extends EventModel {
     return results;
   }
 }
-
 
 export class EventBus extends AsyncEventModel {
   private static instance: EventBus;
@@ -286,12 +305,11 @@ export class EventBus extends AsyncEventModel {
   }
 
   /**
-  * 私有构造函数，确保单例
-  */
+   * 私有构造函数，确保单例
+   */
   private constructor(engine: Engine) {
     super(engine);
   }
-
 }
 
 export default EventModel;

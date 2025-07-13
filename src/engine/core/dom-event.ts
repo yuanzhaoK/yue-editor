@@ -5,7 +5,12 @@
  * 提供事件的统一管理和处理
  */
 
-import { NodeModel } from './node';
+import { CARD_ELEMENT_KEY } from "../constants";
+import { getClipboardData } from "../utils/clipboard";
+import { isHotkey } from "../utils/keyboard";
+import { ChangeManager } from "./change";
+import { Engine } from "./engine";
+import getNodeModel, { NodeModel } from "./node";
 
 /**
  * 事件处理器类型
@@ -57,15 +62,21 @@ export class DOMEventManager {
 
   public copySource?: string;
 
+  public engine: Engine;
+
+  /** 剪贴板数据 */
+  public clipboardData?: DataTransfer;
+
   /**
    * 构造函数
    * @param editArea - 编辑区域
    * @param win - 窗口对象
    */
-  constructor(editArea: NodeModel, win: Window) {
-    this.editArea = editArea;
-    this.win = win;
-    this.doc = win.document;
+  constructor(change: ChangeManager) {
+    this.editArea = change.editArea;
+    this.win = change.win;
+    this.doc = change.doc;
+    this.engine = change.engine;
 
     // 初始化组合输入事件
     this.initializeCompositionEvents();
@@ -76,13 +87,29 @@ export class DOMEventManager {
    * @private
    */
   private initializeCompositionEvents(): void {
-    this.editArea.on('compositionstart', () => {
+    this.editArea.on("compositionstart", () => {
       this.isComposing = true;
     });
 
-    this.editArea.on('compositionend', () => {
+    this.editArea.on("compositionend", () => {
       this.isComposing = false;
     });
+  }
+  isBlockInput(e: Event): boolean {
+    let node = getNodeModel(e.target as Node);
+    while (node) {
+      if (node.isRoot()) {
+        return false;
+      }
+      if (node.attr(CARD_ELEMENT_KEY) === "center") {
+        return true;
+      }
+      if (node.hasClass("lake-embed-toolbar")) {
+        return true;
+      }
+      node = node.parent()!;
+    }
+    return false;
   }
 
   /**
@@ -90,8 +117,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onInput(handler: EventHandler): void {
-    this.addEventListener('input', handler);
-    this.editArea.on('input', handler);
+    this.addEventListener("input", handler);
+    this.editArea.on("input", handler);
   }
 
   /**
@@ -99,8 +126,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offInput(handler: EventHandler): void {
-    this.removeEventListener('input', handler);
-    this.editArea.off('input', handler);
+    this.removeEventListener("input", handler);
+    this.editArea.off("input", handler);
   }
 
   /**
@@ -108,8 +135,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onKeydown(handler: EventHandler): void {
-    this.addEventListener('keydown', handler);
-    this.editArea.on('keydown', handler);
+    this.addEventListener("keydown", handler);
+    this.editArea.on("keydown", handler);
   }
 
   /**
@@ -117,8 +144,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offKeydown(handler: EventHandler): void {
-    this.removeEventListener('keydown', handler);
-    this.editArea.off('keydown', handler);
+    this.removeEventListener("keydown", handler);
+    this.editArea.off("keydown", handler);
   }
 
   /**
@@ -126,8 +153,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onKeyup(handler: EventHandler): void {
-    this.addEventListener('keyup', handler);
-    this.editArea.on('keyup', handler);
+    this.addEventListener("keyup", handler);
+    this.editArea.on("keyup", handler);
   }
 
   /**
@@ -135,8 +162,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offKeyup(handler: EventHandler): void {
-    this.removeEventListener('keyup', handler);
-    this.editArea.off('keyup', handler);
+    this.removeEventListener("keyup", handler);
+    this.editArea.off("keyup", handler);
   }
 
   /**
@@ -144,8 +171,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onMousedown(handler: EventHandler): void {
-    this.addEventListener('mousedown', handler);
-    this.editArea.on('mousedown', handler);
+    this.addEventListener("mousedown", handler);
+    this.editArea.on("mousedown", handler);
   }
 
   /**
@@ -153,8 +180,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offMousedown(handler: EventHandler): void {
-    this.removeEventListener('mousedown', handler);
-    this.editArea.off('mousedown', handler);
+    this.removeEventListener("mousedown", handler);
+    this.editArea.off("mousedown", handler);
   }
 
   /**
@@ -162,8 +189,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onMouseup(handler: EventHandler): void {
-    this.addEventListener('mouseup', handler);
-    this.editArea.on('mouseup', handler);
+    this.addEventListener("mouseup", handler);
+    this.editArea.on("mouseup", handler);
   }
 
   /**
@@ -171,8 +198,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offMouseup(handler: EventHandler): void {
-    this.removeEventListener('mouseup', handler);
-    this.editArea.off('mouseup', handler);
+    this.removeEventListener("mouseup", handler);
+    this.editArea.off("mouseup", handler);
   }
 
   /**
@@ -180,8 +207,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onMousemove(handler: EventHandler): void {
-    this.addEventListener('mousemove', handler);
-    this.editArea.on('mousemove', handler);
+    this.addEventListener("mousemove", handler);
+    this.editArea.on("mousemove", handler);
   }
 
   /**
@@ -189,8 +216,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offMousemove(handler: EventHandler): void {
-    this.removeEventListener('mousemove', handler);
-    this.editArea.off('mousemove', handler);
+    this.removeEventListener("mousemove", handler);
+    this.editArea.off("mousemove", handler);
   }
 
   /**
@@ -198,8 +225,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onClick(handler: EventHandler): void {
-    this.addEventListener('click', handler);
-    this.editArea.on('click', handler);
+    this.addEventListener("click", handler);
+    this.editArea.on("click", handler);
   }
 
   /**
@@ -207,8 +234,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offClick(handler: EventHandler): void {
-    this.removeEventListener('click', handler);
-    this.editArea.off('click', handler);
+    this.removeEventListener("click", handler);
+    this.editArea.off("click", handler);
   }
 
   /**
@@ -216,8 +243,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDblclick(handler: EventHandler): void {
-    this.addEventListener('dblclick', handler);
-    this.editArea.on('dblclick', handler);
+    this.addEventListener("dblclick", handler);
+    this.editArea.on("dblclick", handler);
   }
 
   /**
@@ -225,8 +252,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDblclick(handler: EventHandler): void {
-    this.removeEventListener('dblclick', handler);
-    this.editArea.off('dblclick', handler);
+    this.removeEventListener("dblclick", handler);
+    this.editArea.off("dblclick", handler);
   }
 
   /**
@@ -234,8 +261,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDragstart(handler: EventHandler): void {
-    this.addEventListener('dragstart', handler);
-    this.editArea.on('dragstart', handler);
+    this.addEventListener("dragstart", handler);
+    this.editArea.on("dragstart", handler);
   }
 
   /**
@@ -243,8 +270,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDragstart(handler: EventHandler): void {
-    this.removeEventListener('dragstart', handler);
-    this.editArea.off('dragstart', handler);
+    this.removeEventListener("dragstart", handler);
+    this.editArea.off("dragstart", handler);
   }
 
   /**
@@ -252,8 +279,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDragend(handler: EventHandler): void {
-    this.addEventListener('dragend', handler);
-    this.editArea.on('dragend', handler);
+    this.addEventListener("dragend", handler);
+    this.editArea.on("dragend", handler);
   }
 
   /**
@@ -261,8 +288,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDragend(handler: EventHandler): void {
-    this.removeEventListener('dragend', handler);
-    this.editArea.off('dragend', handler);
+    this.removeEventListener("dragend", handler);
+    this.editArea.off("dragend", handler);
   }
 
   /**
@@ -270,8 +297,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDragenter(handler: EventHandler): void {
-    this.addEventListener('dragenter', handler);
-    this.editArea.on('dragenter', handler);
+    this.addEventListener("dragenter", handler);
+    this.editArea.on("dragenter", handler);
   }
 
   /**
@@ -279,8 +306,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDragenter(handler: EventHandler): void {
-    this.removeEventListener('dragenter', handler);
-    this.editArea.off('dragenter', handler);
+    this.removeEventListener("dragenter", handler);
+    this.editArea.off("dragenter", handler);
   }
 
   /**
@@ -288,8 +315,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDragleave(handler: EventHandler): void {
-    this.addEventListener('dragleave', handler);
-    this.editArea.on('dragleave', handler);
+    this.addEventListener("dragleave", handler);
+    this.editArea.on("dragleave", handler);
   }
 
   /**
@@ -297,8 +324,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDragleave(handler: EventHandler): void {
-    this.removeEventListener('dragleave', handler);
-    this.editArea.off('dragleave', handler);
+    this.removeEventListener("dragleave", handler);
+    this.editArea.off("dragleave", handler);
   }
 
   /**
@@ -306,8 +333,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDragover(handler: EventHandler): void {
-    this.addEventListener('dragover', handler);
-    this.editArea.on('dragover', handler);
+    this.addEventListener("dragover", handler);
+    this.editArea.on("dragover", handler);
   }
 
   /**
@@ -315,8 +342,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDragover(handler: EventHandler): void {
-    this.removeEventListener('dragover', handler);
-    this.editArea.off('dragover', handler);
+    this.removeEventListener("dragover", handler);
+    this.editArea.off("dragover", handler);
   }
 
   /**
@@ -324,8 +351,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onDrop(handler: EventHandler): void {
-    this.addEventListener('drop', handler);
-    this.editArea.on('drop', handler);
+    this.addEventListener("drop", handler);
+    this.editArea.on("drop", handler);
   }
 
   /**
@@ -333,17 +360,65 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offDrop(handler: EventHandler): void {
-    this.removeEventListener('drop', handler);
-    this.editArea.off('drop', handler);
+    this.removeEventListener("drop", handler);
+    this.editArea.off("drop", handler);
   }
 
   /**
    * 监听粘贴事件
    * @param handler - 事件处理器
    */
-  onPaste(handler: EventHandler): void {
-    this.addEventListener('paste', handler);
-    this.editArea.on('paste', handler);
+  onPaste(
+    handler: (data: {
+      isPlainText: boolean;
+      isPasteText: boolean;
+      text?: string;
+      html?: string;
+      files?: File[];
+    }) => void
+  ): void {
+    let isPasteText = false;
+    this.editArea.on("keydown", (event: KeyboardEvent) => {
+      if (this.engine && this.engine.isReadonly) {
+        return;
+      }
+      if (
+        isHotkey("mod", event) ||
+        !isHotkey("shift", event) ||
+        !isHotkey("v", event)
+      ) {
+        isPasteText = true;
+      }
+      if (
+        isHotkey("mod+shift+v", event) ||
+        isHotkey("mod+alt+shift+v", event)
+      ) {
+        isPasteText = true;
+      }
+    });
+    this.editArea.on("paste", (e) => {
+      if (this.engine && this.engine.isReadonly) {
+        return;
+      }
+
+      if (this.isBlockInput(e)) {
+        return;
+      }
+
+      e.preventDefault();
+      const data = getClipboardData(e);
+      data.isPasteText = isPasteText;
+      isPasteText = false;
+      handler(
+        data as {
+          isPlainText: boolean;
+          isPasteText: boolean;
+          text: string | undefined;
+          html: string | undefined;
+          files: File[];
+        }
+      );
+    });
   }
 
   /**
@@ -351,8 +426,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offPaste(handler: EventHandler): void {
-    this.removeEventListener('paste', handler);
-    this.editArea.off('paste', handler);
+    this.removeEventListener("paste", handler);
+    this.editArea.off("paste", handler);
   }
 
   /**
@@ -360,8 +435,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onCopy(handler: EventHandler): void {
-    this.addEventListener('copy', handler);
-    this.editArea.on('copy', handler);
+    this.addEventListener("copy", handler);
+    this.editArea.on("copy", handler);
   }
 
   /**
@@ -369,8 +444,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offCopy(handler: EventHandler): void {
-    this.removeEventListener('copy', handler);
-    this.editArea.off('copy', handler);
+    this.removeEventListener("copy", handler);
+    this.editArea.off("copy", handler);
   }
 
   /**
@@ -378,8 +453,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   onCut(handler: EventHandler): void {
-    this.addEventListener('cut', handler);
-    this.editArea.on('cut', handler);
+    this.addEventListener("cut", handler);
+    this.editArea.on("cut", handler);
   }
 
   /**
@@ -387,8 +462,8 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    */
   offCut(handler: EventHandler): void {
-    this.removeEventListener('cut', handler);
-    this.editArea.off('cut', handler);
+    this.removeEventListener("cut", handler);
+    this.editArea.off("cut", handler);
   }
 
   /**
@@ -464,7 +539,10 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    * @private
    */
-  private addDocumentEventListener(eventType: string, handler: EventHandler): void {
+  private addDocumentEventListener(
+    eventType: string,
+    handler: EventHandler
+  ): void {
     if (!this.documentHandlers.has(eventType)) {
       this.documentHandlers.set(eventType, new Set());
     }
@@ -477,7 +555,10 @@ export class DOMEventManager {
    * @param handler - 事件处理器
    * @private
    */
-  private removeDocumentEventListener(eventType: string, handler: EventHandler): void {
+  private removeDocumentEventListener(
+    eventType: string,
+    handler: EventHandler
+  ): void {
     const handlers = this.documentHandlers.get(eventType);
     if (handlers) {
       handlers.delete(handler);
@@ -493,7 +574,7 @@ export class DOMEventManager {
   clear(): void {
     // 清除编辑区域事件
     this.handlers.forEach((handlers, eventType) => {
-      handlers.forEach(handler => {
+      handlers.forEach((handler) => {
         this.editArea.off(eventType, handler);
       });
     });
@@ -501,7 +582,7 @@ export class DOMEventManager {
 
     // 清除文档事件
     this.documentHandlers.forEach((handlers, eventType) => {
-      handlers.forEach(handler => {
+      handlers.forEach((handler) => {
         this.doc.removeEventListener(eventType, handler);
       });
     });
