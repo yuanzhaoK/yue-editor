@@ -1,7 +1,7 @@
 import markdownIt from "markdown-it";
 import markdownItAbbr from "markdown-it-abbr";
 import markdownItCheckboxes from "markdown-it-checkboxes";
-import markdownItEmoji from "markdown-it-emoji";
+import { full as markdownItEmoji } from 'markdown-it-emoji'
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItIns from "markdown-it-ins";
 import markdownItMark from "markdown-it-mark";

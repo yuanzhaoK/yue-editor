@@ -1044,7 +1044,7 @@ export class NodeModel implements NodeModelInterface {
    */
   public replaceWith(
     content: string | Node | NodeModel | NodeModelInterface
-  ): NodeModelInterface {
+  ): NodeModel {
     const nodes =
       content instanceof NodeModel
         ? content.toArray()

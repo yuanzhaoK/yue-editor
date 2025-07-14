@@ -5,15 +5,15 @@
  * 提供插件的注册、安装、启用、禁用、执行等功能
  */
 
-import { Engine } from './engine';
-import { 
-  Plugin, 
-  PluginConstructor, 
-  PluginMetadata, 
+import { Engine } from "./engine";
+import {
+  Plugin,
+  PluginConstructor,
+  PluginMetadata,
   PluginManagerInterface,
   PluginOptions,
-  EventCallback
-} from '../types';
+  EventCallback,
+} from "../types";
 
 /**
  * 插件管理器类
@@ -28,14 +28,14 @@ import {
  * @example
  * ```typescript
  * const pluginManager = new PluginManager(engine);
- * 
+ *
  * // 注册插件
  * pluginManager.register(BoldPlugin);
  * pluginManager.register(ItalicPlugin, { hotkeys: { execute: 'ctrl+i' } });
- * 
+ *
  * // 启用插件
  * await pluginManager.enable('bold');
- * 
+ *
  * // 执行插件命令
  * pluginManager.execute('bold');
  * ```
@@ -68,9 +68,9 @@ export class PluginManager implements PluginManagerInterface {
    */
   register(pluginClass: PluginConstructor, options?: PluginOptions): void {
     const name = pluginClass.pluginName;
-    
+
     if (!name) {
-      throw new Error('Plugin must have a static pluginName property');
+      throw new Error("Plugin must have a static pluginName property");
     }
 
     if (this.plugins.has(name)) {
@@ -81,7 +81,7 @@ export class PluginManager implements PluginManagerInterface {
     // 合并默认选项和传入选项
     const mergedOptions = {
       ...pluginClass.defaultOptions,
-      ...options
+      ...options,
     };
 
     // 创建插件元数据
@@ -90,15 +90,15 @@ export class PluginManager implements PluginManagerInterface {
       displayName: mergedOptions.description || name,
       type: this.detectPluginType(name),
       isCore: this.isCorePlugin(name),
-      status: 'installed',
-      constructor: pluginClass
+      status: "installed",
+      constructor: pluginClass,
     };
 
     this.plugins.set(name, metadata);
     this.updatePluginOrder();
 
     // 触发插件注册事件
-    this.engine.event.trigger('plugin:register', { name, metadata });
+    this.engine.event.trigger("plugin:register", { name, metadata });
   }
 
   /**
@@ -106,7 +106,7 @@ export class PluginManager implements PluginManagerInterface {
    * @param plugins - 插件构造函数数组
    */
   registerAll(plugins: PluginConstructor[]): void {
-    plugins.forEach(plugin => this.register(plugin));
+    plugins.forEach((plugin) => this.register(plugin));
   }
 
   /**
@@ -115,12 +115,12 @@ export class PluginManager implements PluginManagerInterface {
    */
   async install(name: string): Promise<void> {
     const metadata = this.plugins.get(name);
-    
+
     if (!metadata) {
       throw new Error(`Plugin "${name}" not found`);
     }
 
-    if (metadata.status !== 'installed' || metadata.instance) {
+    if (metadata.status !== "installed" || metadata.instance) {
       return;
     }
 
@@ -129,14 +129,17 @@ export class PluginManager implements PluginManagerInterface {
       await this.checkDependencies(name);
 
       // 创建插件实例
-      const instance = new metadata.constructor!(this.engine, metadata.constructor!.defaultOptions);
+      const instance = new metadata.constructor!(
+        this.engine,
+        metadata.constructor!.defaultOptions
+      );
       metadata.instance = instance;
 
       // 设置插件引擎引用
       if (instance.getEngine) {
-        Object.defineProperty(instance, 'engine', {
+        Object.defineProperty(instance, "engine", {
           get: () => this.engine,
-          configurable: false
+          configurable: false,
         });
       }
 
@@ -157,12 +160,13 @@ export class PluginManager implements PluginManagerInterface {
       }
 
       // 触发插件安装事件
-      this.engine.event.trigger('plugin:install', { name, instance });
-
+      this.engine.event.trigger("plugin:install", { name, instance });
     } catch (error) {
-      metadata.status = 'error';
+      metadata.status = "error";
       metadata.error = error as Error;
-      throw new Error(`Failed to install plugin "${name}": ${(error as Error).message}`);
+      throw new Error(
+        `Failed to install plugin "${name}": ${(error as Error).message}`
+      );
     }
   }
 
@@ -172,13 +176,13 @@ export class PluginManager implements PluginManagerInterface {
    */
   async uninstall(name: string): Promise<void> {
     const metadata = this.plugins.get(name);
-    
+
     if (!metadata || !metadata.instance) {
       return;
     }
 
     // 先禁用插件
-    if (metadata.status === 'enabled') {
+    if (metadata.status === "enabled") {
       await this.disable(name);
     }
 
@@ -199,12 +203,12 @@ export class PluginManager implements PluginManagerInterface {
 
     // 清理元数据
     delete metadata.instance;
-    metadata.status = 'installed';
+    metadata.status = "installed";
     delete metadata.loadTime;
     delete metadata.error;
 
     // 触发插件卸载事件
-    this.engine.event.trigger('plugin:uninstall', { name });
+    this.engine.event.trigger("plugin:uninstall", { name });
   }
 
   /**
@@ -213,7 +217,7 @@ export class PluginManager implements PluginManagerInterface {
    */
   async enable(name: string): Promise<void> {
     const metadata = this.plugins.get(name);
-    
+
     if (!metadata) {
       throw new Error(`Plugin "${name}" not found`);
     }
@@ -223,7 +227,7 @@ export class PluginManager implements PluginManagerInterface {
       await this.install(name);
     }
 
-    if (metadata.status === 'enabled') {
+    if (metadata.status === "enabled") {
       return;
     }
 
@@ -240,21 +244,22 @@ export class PluginManager implements PluginManagerInterface {
         instance.initialize();
       }
 
-      // 注册命令
+      // 注册同名命令
       this.registerPluginCommands(name, instance);
 
       // 注册快捷键
       this.registerPluginHotkeys(name, instance);
 
-      metadata.status = 'enabled';
+      metadata.status = "enabled";
 
       // 触发插件启用事件
-      this.engine.event.trigger('plugin:enable', { name, instance });
-
+      this.engine.event.trigger("plugin:enable", { name, instance });
     } catch (error) {
-      metadata.status = 'error';
+      metadata.status = "error";
       metadata.error = error as Error;
-      throw new Error(`Failed to enable plugin "${name}": ${(error as Error).message}`);
+      throw new Error(
+        `Failed to enable plugin "${name}": ${(error as Error).message}`
+      );
     }
   }
 
@@ -264,8 +269,8 @@ export class PluginManager implements PluginManagerInterface {
    */
   async disable(name: string): Promise<void> {
     const metadata = this.plugins.get(name);
-    
-    if (!metadata || metadata.status !== 'enabled') {
+
+    if (!metadata || metadata.status !== "enabled") {
       return;
     }
 
@@ -275,7 +280,9 @@ export class PluginManager implements PluginManagerInterface {
     const dependents = this.getDependents(name);
     if (dependents.length > 0) {
       throw new Error(
-        `Cannot disable plugin "${name}" because it is required by: ${dependents.join(', ')}`
+        `Cannot disable plugin "${name}" because it is required by: ${dependents.join(
+          ", "
+        )}`
       );
     }
 
@@ -290,10 +297,10 @@ export class PluginManager implements PluginManagerInterface {
     // 注销快捷键
     this.unregisterPluginHotkeys(name);
 
-    metadata.status = 'disabled';
+    metadata.status = "disabled";
 
     // 触发插件禁用事件
-    this.engine.event.trigger('plugin:disable', { name });
+    this.engine.event.trigger("plugin:disable", { name });
   }
 
   /**
@@ -329,7 +336,7 @@ export class PluginManager implements PluginManagerInterface {
    */
   isEnabled(name: string): boolean {
     const metadata = this.plugins.get(name);
-    return metadata?.status === 'enabled';
+    return metadata?.status === "enabled";
   }
 
   /**
@@ -340,7 +347,7 @@ export class PluginManager implements PluginManagerInterface {
    */
   execute(name: string, ...args: any[]): any {
     const plugin = this.get(name);
-    
+
     if (!plugin) {
       throw new Error(`Plugin "${name}" not found`);
     }
@@ -354,9 +361,9 @@ export class PluginManager implements PluginManagerInterface {
     }
 
     // 触发执行前事件
-    const cancelled = this.engine.event.trigger('plugin:before-execute', {
+    const cancelled = this.engine.event.trigger("plugin:before-execute", {
       name,
-      args
+      args,
     });
 
     if (cancelled === false) {
@@ -367,10 +374,10 @@ export class PluginManager implements PluginManagerInterface {
     const result = plugin.execute(...args);
 
     // 触发执行后事件
-    this.engine.event.trigger('plugin:after-execute', {
+    this.engine.event.trigger("plugin:after-execute", {
       name,
       args,
-      result
+      result,
     });
 
     return result;
@@ -383,7 +390,7 @@ export class PluginManager implements PluginManagerInterface {
    */
   queryState(name: string): boolean {
     const plugin = this.get(name);
-    
+
     if (!plugin || !this.isEnabled(name)) {
       return false;
     }
@@ -406,8 +413,8 @@ export class PluginManager implements PluginManagerInterface {
     // 按优先级顺序初始化插件
     for (const name of this.pluginOrder) {
       const metadata = this.plugins.get(name);
-      
-      if (!metadata || metadata.status === 'error') {
+
+      if (!metadata || metadata.status === "error") {
         continue;
       }
 
@@ -420,7 +427,7 @@ export class PluginManager implements PluginManagerInterface {
 
     // 调用所有插件的 onReady 钩子
     for (const [name, metadata] of this.plugins) {
-      if (metadata.instance?.onReady && metadata.status === 'enabled') {
+      if (metadata.instance?.onReady && metadata.status === "enabled") {
         try {
           await metadata.instance.onReady(this.engine);
         } catch (error) {
@@ -432,7 +439,7 @@ export class PluginManager implements PluginManagerInterface {
     this.initialized = true;
 
     // 触发插件系统初始化完成事件
-    this.engine.event.trigger('plugin:ready');
+    this.engine.event.trigger("plugin:ready");
   }
 
   /**
@@ -441,7 +448,7 @@ export class PluginManager implements PluginManagerInterface {
   async destroyAll(): Promise<void> {
     // 调用所有插件的 onDestroy 钩子
     for (const [name, metadata] of this.plugins) {
-      if (metadata.instance?.onDestroy && metadata.status === 'enabled') {
+      if (metadata.instance?.onDestroy && metadata.status === "enabled") {
         try {
           await metadata.instance.onDestroy(this.engine);
         } catch (error) {
@@ -465,7 +472,7 @@ export class PluginManager implements PluginManagerInterface {
     this.initialized = false;
 
     // 触发插件系统销毁事件
-    this.engine.event.trigger('plugin:destroy');
+    this.engine.event.trigger("plugin:destroy");
   }
 
   // ========== 私有方法 ==========
@@ -475,21 +482,23 @@ export class PluginManager implements PluginManagerInterface {
    * @param name - 插件名称
    * @returns 插件类型
    */
-  private detectPluginType(name: string): 'core' | 'format' | 'element' | 'tool' | 'extension' {
+  private detectPluginType(
+    name: string
+  ): "core" | "format" | "element" | "tool" | "extension" {
     // 基于插件名称模式检测类型
-    if (['bold', 'italic', 'underline', 'strikethrough'].includes(name)) {
-      return 'format';
+    if (["bold", "italic", "underline", "strikethrough"].includes(name)) {
+      return "format";
     }
-    if (['image', 'video', 'table', 'code-block'].includes(name)) {
-      return 'element';
+    if (["image", "video", "table", "code-block"].includes(name)) {
+      return "element";
     }
-    if (['undo', 'redo', 'paste', 'drop'].includes(name)) {
-      return 'core';
+    if (["undo", "redo", "paste", "drop"].includes(name)) {
+      return "core";
     }
-    if (['search', 'replace', 'word-count'].includes(name)) {
-      return 'tool';
+    if (["search", "replace", "word-count"].includes(name)) {
+      return "tool";
     }
-    return 'extension';
+    return "extension";
   }
 
   /**
@@ -498,7 +507,14 @@ export class PluginManager implements PluginManagerInterface {
    * @returns 是否为核心插件
    */
   private isCorePlugin(name: string): boolean {
-    const corePlugins = ['paste', 'drop', 'undo', 'selectall', 'paintformat', 'removeformat'];
+    const corePlugins = [
+      "paste",
+      "drop",
+      "undo",
+      "selectall",
+      "paintformat",
+      "removeformat",
+    ];
     return corePlugins.includes(name);
   }
 
@@ -516,7 +532,7 @@ export class PluginManager implements PluginManagerInterface {
         // 按优先级排序
         const priorityA = metaA.instance?.options?.priority || 0;
         const priorityB = metaB.instance?.options?.priority || 0;
-        
+
         return priorityB - priorityA;
       })
       .map(([name]) => name);
@@ -567,11 +583,14 @@ export class PluginManager implements PluginManagerInterface {
     const metadata = this.plugins.get(name);
     if (!metadata?.constructor) return;
 
-    const dependencies = metadata.constructor.defaultOptions?.dependencies || [];
-    
+    const dependencies =
+      metadata.constructor.defaultOptions?.dependencies || [];
+
     for (const dep of dependencies) {
       if (!this.plugins.has(dep)) {
-        throw new Error(`Plugin "${name}" requires plugin "${dep}" which is not registered`);
+        throw new Error(
+          `Plugin "${name}" requires plugin "${dep}" which is not registered`
+        );
       }
 
       // 确保依赖已启用
@@ -630,15 +649,19 @@ export class PluginManager implements PluginManagerInterface {
       };
 
       instance.emit = (event: string, ...args: any[]) => {
+        const [data, ...rest] = args;
         const callbacks = listeners.get(event);
         if (callbacks) {
           for (const callback of callbacks) {
-            callback.apply(null, args);
+            callback.apply(null, [data, ...rest]); // 确保参数正确传递
           }
         }
 
         // 触发引擎事件
-        this.engine.event.trigger(`plugin:${name}:${event}`, args.length === 1 ? args[0] : args);
+        this.engine.event.trigger(
+          `plugin:${name}:${event}`,
+          args.length === 1 ? args[0] : args
+        );
       };
     }
   }
@@ -661,10 +684,16 @@ export class PluginManager implements PluginManagerInterface {
     // 将插件作为命令注册到命令管理器
     if (this.engine.command && instance.execute) {
       this.engine.command.register(name, {
-        execute: () => instance.execute!(),
-        queryState: instance.queryState ? () => instance.queryState!() : undefined,
-        queryValue: instance.queryValue ? () => instance.queryValue!() : undefined,
-        queryEnabled: instance.isEnabled ? () => instance.isEnabled!() : undefined
+        execute: (args) => instance.execute!(...args),
+        queryState: instance.queryState
+          ? () => instance.queryState!()
+          : undefined,
+        queryValue: instance.queryValue
+          ? () => instance.queryValue!()
+          : undefined,
+        queryEnabled: instance.isEnabled
+          ? () => instance.isEnabled!()
+          : undefined,
       });
     }
 
@@ -704,20 +733,20 @@ export class PluginManager implements PluginManagerInterface {
    * @param name - 插件名称
    * @param instance - 插件实例
    */
-  private registerPluginHotkeys(name: string, instance: Plugin): void {
+  private registerPluginHotkeys(_name: string, instance: Plugin): void {
     const hotkeys = instance.getHotkeys?.() || instance.options?.hotkeys || {};
 
     for (const [action, keys] of Object.entries(hotkeys)) {
       const keyArray = Array.isArray(keys) ? keys : [keys];
-      
+
       for (const key of keyArray) {
         // 注册快捷键到引擎
         this.engine.event.on(`keydown:${key}`, (e: KeyboardEvent) => {
           e.preventDefault();
-          
-          if (action === 'execute' && instance.execute) {
+
+          if (action === "execute" && instance.execute) {
             instance.execute();
-          } else if (typeof instance[action as keyof Plugin] === 'function') {
+          } else if (typeof instance[action as keyof Plugin] === "function") {
             (instance[action as keyof Plugin] as Function)();
           }
         });
@@ -737,11 +766,11 @@ export class PluginManager implements PluginManagerInterface {
 
     for (const [, keys] of Object.entries(hotkeys)) {
       const keyArray = Array.isArray(keys) ? keys : [keys];
-      
+
       for (const key of keyArray) {
         // 移除快捷键事件监听
         this.engine.event.off(`keydown:${key}`);
       }
     }
   }
-} 
+}

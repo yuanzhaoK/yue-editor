@@ -387,9 +387,10 @@ export class DOMEventManager {
         !isHotkey("shift", event) ||
         !isHotkey("v", event)
       ) {
-        isPasteText = true;
+        isPasteText = false;
       }
       if (
+        // isHotkey("mod+v", event) ||
         isHotkey("mod+shift+v", event) ||
         isHotkey("mod+alt+shift+v", event)
       ) {

@@ -430,7 +430,7 @@ export class CommandManager {
       let result: any;
 
       if (command.execute) {
-        result = command.execute(...args);
+        result = command.execute(args);
       }
 
       // 更新统计信息

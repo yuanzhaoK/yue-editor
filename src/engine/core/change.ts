@@ -309,7 +309,7 @@ export class ChangeManager {
     const blockRoot = this.block.insertNode(range, component, this.engine);
   }
 
-  insertFragment(fragment: Node, callback: () => void) {
+  insertFragment(fragment: DocumentFragment, callback: () => void) {
     const range = this.getRange();
     this.repairRange(range);
     this.select(range);

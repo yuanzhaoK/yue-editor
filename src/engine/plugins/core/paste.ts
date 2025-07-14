@@ -12,6 +12,7 @@ import {
 import {
   fetchAllChildren,
   isEmptyNodeWithTrim,
+  normalize,
   removeMinusStyle,
   removeSideBr,
   unwrapNode,
@@ -24,7 +25,9 @@ import {
 import { createBookmark, moveToBookmark } from "@/engine/utils/range";
 import { ParserMarkdown } from "@/engine/parser/markdown";
 
-class Paste extends BasePlugin {
+export class Paste extends BasePlugin {
+  static pluginName = "paste";
+
   private getDefaultStyleList = (): Partial<CSSStyleDeclaration>[] => {
     const defaultStyleList = [
       {
@@ -277,7 +280,7 @@ class Paste extends BasePlugin {
         unwrapNode(node[0]);
       }
     });
-    this.normalizePaste(fragment);
+    normalize(fragment);
     nodes = fetchAllChildren(fragment);
     nodes.forEach((node) => {
       node = getNodeModel(node);
@@ -288,77 +291,6 @@ class Paste extends BasePlugin {
   }
 
   initialize() {
-    this.engine.command.register("paste", {
-      description: "粘贴",
-      execute: (source: string) => {
-        const schema = this.engine.schema.clone();
-        const conversion = this.engine.conversion.clone();
-        schema.addRules([
-          {
-            name: "pre",
-            type: "block",
-            isVoid: true,
-          },
-          {
-            name: "p",
-            type: "block",
-            attributes: {
-              "data-type": "*",
-            },
-            style: {
-              "font-size": "@length",
-            },
-            isVoid: false,
-          },
-          {
-            name: "span",
-            type: "inline",
-            isVoid: false,
-            attributes: {
-              "data-type": "*",
-            },
-            style: {
-              "font-size": "@length",
-            },
-          },
-          {
-            name: "mark",
-            type: "inline",
-            isVoid: true,
-          },
-          {
-            name: "block",
-            type: "block",
-            isVoid: false,
-            attributes: {
-              id: "*",
-            },
-          },
-        ]);
-        this.engine.event.trigger("paste:schema", schema);
-
-        const fragment = new ParserHtml(source, schema, conversion, (root) => {
-          this.engine.event.trigger("paste:origin", root);
-        }).toDOM();
-
-        this.normalizePaste(getNodeModel(fragment));
-        this.engine.event.trigger("paste:before", fragment);
-        this.engine.change.insertFragment(fragment, () => {
-          this.engine.event.trigger("paste:insert");
-          const range = this.engine.change.getRange();
-          const bookmark = createBookmark(range);
-          this.engine.block.renderAll(this.engine.editArea, this.engine, null);
-          moveToBookmark(range, bookmark);
-        });
-        this.engine.event.trigger("paste:after", fragment);
-      },
-      queryEnabled: () => {
-        return true;
-      },
-      queryState: () => {
-        return true;
-      },
-    });
     this.engine.domEvent.onPaste((data) => {
       // 文件上传
       if (data.files && data.files.length > 0) {
@@ -395,17 +327,76 @@ class Paste extends BasePlugin {
         this.engine.command.execute("paste", source);
       }
     });
-    // 监听插件事件
-    this.on("custom-event", (data) => {
-      console.log("自定义事件:", data);
-    });
   }
-  execute(...args: any[]) {
-    this.emit("custom-event", { message: "Hello" });
-    this.engine.event.trigger("custom-event", {
-      message: "这是一个自定义事件",
-      args: args,
+
+  queryEnabled() {
+    return true;
+  }
+  queryState() {
+    return true;
+  }
+
+  execute(source: string) {
+    const schema = this.engine.schema.clone();
+    const conversion = this.engine.conversion.clone();
+
+    schema.addRules([
+      {
+        name: "pre",
+        type: "block",
+        isVoid: true,
+      },
+      {
+        name: "p",
+        type: "block",
+        attributes: {
+          "data-type": "*",
+        },
+        style: {
+          "font-size": "@length",
+        },
+        isVoid: false,
+      },
+      {
+        name: "span",
+        type: "inline",
+        isVoid: false,
+        attributes: {
+          "data-type": "*",
+        },
+        style: {
+          "font-size": "@length",
+        },
+      },
+      {
+        name: "mark",
+        type: "inline",
+        isVoid: true,
+      },
+      {
+        name: "block",
+        type: "block",
+        isVoid: false,
+        attributes: {
+          id: "*",
+        },
+      },
+    ]);
+    this.engine.event.trigger("paste:schema", schema);
+
+    const fragment = new ParserHtml(source, schema, conversion, (root) => {
+      this.engine.event.trigger("paste:origin", root);
+    }).toDOM();
+
+    this.normalizePaste(getNodeModel(fragment));
+    this.engine.event.trigger("paste:before", fragment);
+    this.engine.change.insertFragment(fragment, () => {
+      this.engine.event.trigger("paste:insert");
+      const range = this.engine.change.getRange();
+      const bookmark = createBookmark(range);
+      this.engine.block.renderAll(this.engine.editArea, this.engine, null);
+      moveToBookmark(range, bookmark);
     });
+    this.engine.event.trigger("paste:after", fragment);
   }
 }
-export default Paste;

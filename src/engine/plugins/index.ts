@@ -5,27 +5,20 @@
  */
 
 // 格式化插件
-export { BoldPlugin } from './format/bold';
-export { ItalicPlugin } from './format/italic';
+export { BoldPlugin } from "./format/bold";
+export { ItalicPlugin } from "./format/italic";
+export { Paste } from "./core/paste";
 
 // 元素插件
-export { LinkPlugin } from './element/link';
+export { LinkPlugin } from "./element/link";
 
 // 插件集合
-import { BoldPlugin } from './format/bold';
-import { ItalicPlugin } from './format/italic';
-import { LinkPlugin } from './element/link';
+import { BoldPlugin } from "./format/bold";
+import { ItalicPlugin } from "./format/italic";
+import { LinkPlugin } from "./element/link";
 
-export const FORMAT_PLUGINS = [
-  BoldPlugin,
-  ItalicPlugin
-];
+export const FORMAT_PLUGINS = [BoldPlugin, ItalicPlugin];
 
-export const ELEMENT_PLUGINS = [
-  LinkPlugin
-];
+export const ELEMENT_PLUGINS = [LinkPlugin];
 
-export const ALL_PLUGINS = [
-  ...FORMAT_PLUGINS,
-  ...ELEMENT_PLUGINS
-]; 
+export const ALL_PLUGINS = [...FORMAT_PLUGINS, ...ELEMENT_PLUGINS];
