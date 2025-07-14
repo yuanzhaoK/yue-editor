@@ -18,6 +18,7 @@ export default function initEngine(
   options: EngineOptions
 ): Engine {
   let defaultPlugins = ["bold", "italic", "link", "paste", "drop"];
+
   const { plugins, ...rest } = options;
   if (plugins && plugins.length > 0) {
     defaultPlugins = defaultPlugins.concat(plugins);
@@ -26,11 +27,15 @@ export default function initEngine(
     plugins: defaultPlugins,
     ...rest,
   });
+  // Register core plugins
   engineInstance.plugin.register(Paste, {});
   engineInstance.plugin.register(Drop, {});
-  
+  // formatting plugins
   engineInstance.plugin.register(BoldPlugin, {});
   engineInstance.plugin.register(ItalicPlugin, {});
   engineInstance.plugin.register(LinkPlugin, {});
+
+
+
   return engineInstance;
 }
