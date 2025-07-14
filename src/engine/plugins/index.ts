@@ -8,6 +8,7 @@
 export { BoldPlugin } from "./format/bold";
 export { ItalicPlugin } from "./format/italic";
 export { Paste } from "./core/paste";
+export { Drop } from "./core/drop";
 
 // 元素插件
 export { LinkPlugin } from "./element/link";

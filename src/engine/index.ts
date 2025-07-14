@@ -1,6 +1,7 @@
 import { Engine } from "./core/engine";
 import { EngineOptions } from "./types";
-import { Paste } from "./plugins";
+import { Paste, Drop } from "./plugins";
+
 import { BoldPlugin, ItalicPlugin, LinkPlugin } from "../engine/plugins";
 // Export all public API
 export { Engine } from "./core/engine";
@@ -16,7 +17,7 @@ export default function initEngine(
   selector: string,
   options: EngineOptions
 ): Engine {
-  let defaultPlugins = ["bold", "italic", "link", "paste"];
+  let defaultPlugins = ["bold", "italic", "link", "paste", "drop"];
   const { plugins, ...rest } = options;
   if (plugins && plugins.length > 0) {
     defaultPlugins = defaultPlugins.concat(plugins);
@@ -26,6 +27,8 @@ export default function initEngine(
     ...rest,
   });
   engineInstance.plugin.register(Paste, {});
+  engineInstance.plugin.register(Drop, {});
+  
   engineInstance.plugin.register(BoldPlugin, {});
   engineInstance.plugin.register(ItalicPlugin, {});
   engineInstance.plugin.register(LinkPlugin, {});

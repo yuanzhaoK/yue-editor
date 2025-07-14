@@ -94,7 +94,7 @@ export interface BlockState {
 /**
  * 卡片值类型
  */
-export interface CardValue {
+export interface BlockValue {
   /** 卡片唯一标识 */
   id?: string;
 
@@ -622,7 +622,7 @@ export interface CardInterface {
   container?: NodeModelInterface;
 
   /** 卡片值 */
-  value: CardValue;
+  value: BlockValue;
 
   /** 卡片状态 */
   state: BlockState;
@@ -652,10 +652,10 @@ export interface CardInterface {
   embedToolbar?(): CardToolbarItem[];
 
   /** 设置值 */
-  setValue?(value: Partial<CardValue>, saveHistory?: boolean): void;
+  setValue?(value: Partial<BlockValue>, saveHistory?: boolean): void;
 
   /** 获取值 */
-  getValue?(): CardValue;
+  getValue?(): BlockValue;
 
   /** 销毁方法 */
   destroy?(): void;
@@ -966,7 +966,7 @@ export interface BlockComponentData {
   /** 块组件实例 */
   instance: CardInterface;
 
-  value: CardValue;
+  value: BlockValue;
 
   type: CardType;
 

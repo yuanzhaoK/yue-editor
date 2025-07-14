@@ -1,14 +1,17 @@
 import {
   BlockComponentData,
+  BlockValue,
   CardType,
   EventCallback,
   RangeInterface,
 } from "../types";
-import { getActiveMarks } from "../utils/mark";
+import { getActiveMarks, getClosest } from "../utils/mark";
 import { getActiveBlocks } from "../utils/block";
 import {
   fetchAllChildren,
+  getClosestBlock,
   getWindow,
+  isEmptyNode,
   isEmptyNodeWithTrim,
 } from "../utils/node";
 import { BlockManager } from "./block";
@@ -297,16 +300,45 @@ export class ChangeManager {
     }
   }
   // 插入并渲染Block
-  insertBlock(name: string, value: string) {
+  insertBlock(name: string, value: BlockValue) {
     const component = this.block.createComponent({
       name,
       value,
       engine: this.engine,
       contentView: null,
-    });
+    })!;
     const range = this.getRange();
     this.repairRange(range);
-    const blockRoot = this.block.insertNode(range, component, this.engine);
+    const blockRoot = this.block.insertNode(range, component, this.engine)!;
+
+    if (component.type === "inline") {
+      this.block.focus(range, blockRoot, false);
+      this.select(range);
+    } else {
+      // 块级卡片前面预留一个空行
+      this.block.focus(range, blockRoot, true);
+      this.repairRange(range);
+      const prevBlock = getClosestBlock(getNodeModel(range.startContainer))!;
+      if (prevBlock.text().trim() !== "") {
+        blockRoot.before("<p><br /></p>");
+      }
+      // 块级卡片后面面预留一个空行
+      this.block.focus(range, blockRoot, false);
+      this.repairRange(range);
+
+      const nextBlock = getClosestBlock(getNodeModel(range.startContainer))!;
+      if (nextBlock.text().trim() !== "") {
+        const empty_node = getNodeModel("<p><br /></p>");
+        blockRoot.after(empty_node);
+        range.setStart(empty_node[0], 1);
+        range.collapse(true);
+      }
+    }
+    if (component.type === "block") {
+      this.activateBlock(blockRoot[0], "insertCard");
+    }
+    this.history.save(false);
+    return blockRoot;
   }
 
   insertFragment(fragment: DocumentFragment, callback: () => void) {
@@ -579,5 +611,32 @@ export class ChangeManager {
 
   isEmpty() {
     return isEmptyNodeWithTrim(this.editArea[0]);
+  }
+
+  removeBlock(blockRoot: NodeModel) {
+    const range = this.getRange();
+    if (this.block.isInline(blockRoot)) {
+      range.setEndAfter(blockRoot[0]);
+      range.collapse(false);
+    } else {
+      this.block.focusPrevBlock(range, blockRoot, true);
+    }
+    const parent = blockRoot.parent()!;
+    this.block.removeNode(blockRoot, this.engine);
+    if (isEmptyNode(parent[0])) {
+      if (parent.isRoot()) {
+        parent.html("<p><br /></p>");
+        range.selectNodeContents(parent[0]);
+        shrinkRange(range);
+        range.collapse(false);
+      } else {
+        parent.html("<br />");
+        range.selectNodeContents(parent[0]);
+        range.collapse(false);
+      }
+    }
+
+    this.select(range);
+    this.history.save(false);
   }
 }

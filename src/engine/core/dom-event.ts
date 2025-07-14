@@ -5,9 +5,11 @@
  * 提供事件的统一管理和处理
  */
 
-import { CARD_ELEMENT_KEY } from "../constants";
+import { CARD_ELEMENT_KEY, ROOT } from "../constants";
 import { getClipboardData } from "../utils/clipboard";
+import { DragToolkit } from "../utils/drag";
 import { isHotkey } from "../utils/keyboard";
+import { BlockManager } from "./block";
 import { ChangeManager } from "./change";
 import { Engine } from "./engine";
 import getNodeModel, { NodeModel } from "./node";
@@ -67,6 +69,10 @@ export class DOMEventManager {
   /** 剪贴板数据 */
   public clipboardData?: DataTransfer;
 
+  block: BlockManager;
+
+  private dragoverToolkit: DragToolkit;
+
   /**
    * 构造函数
    * @param editArea - 编辑区域
@@ -77,6 +83,8 @@ export class DOMEventManager {
     this.win = change.win;
     this.doc = change.doc;
     this.engine = change.engine;
+    this.block = change.block;
+    this.dragoverToolkit = new DragToolkit();
 
     // 初始化组合输入事件
     this.initializeCompositionEvents();
@@ -350,11 +358,127 @@ export class DOMEventManager {
    * 监听拖拽放置事件
    * @param handler - 事件处理器
    */
-  onDrop(handler: EventHandler): void {
-    this.addEventListener("drop", handler);
-    this.editArea.on("drop", handler);
-  }
+  onDrop(
+    handler: (data: {
+      event: DragEvent;
+      dropRange: Range | undefined;
+      blockRoot: any;
+      files: File[];
+    }) => void
+  ): void {
+    if (this.engine && this.engine.isSub()) {
+      return;
+    }
+    const removeCursor = () => {
+      getNodeModel(`body > div.${ROOT}-drop-cursor`).remove();
+    };
+    const setCursor = () => {
+      removeCursor();
+      const targetCursor = getNodeModel(`<div class="${ROOT}-drop-cursor" />`);
+      getNodeModel(document.body).append(targetCursor);
+    };
+    let blockRoot: any = null;
+    let dragImage: any = undefined;
+    let dropRange: Range | undefined;
 
+    this.editArea.on("dragstart", (event: DragEvent) => {
+      setCursor();
+      // 获取拖拽的源节点
+      blockRoot = this.block.closest(event.target as Node);
+
+      if (blockRoot) {
+        this.block.hideCardToolbar(blockRoot);
+        // 设置拖拽图像
+        dragImage = blockRoot.find(`img.${ROOT}-drag-image`);
+        if (dragImage.length > 0) {
+          dragImage = dragImage.clone();
+        } else {
+          dragImage = getNodeModel(`<div class="${ROOT}-drag-image" />`);
+          dragImage.css({
+            width: blockRoot[0].clientWidth + "px",
+            height: blockRoot[0].clientHeight + "px",
+          });
+        }
+        dragImage.css({
+          position: "absolute",
+          top: "-10000px",
+          right: "-10000px",
+        });
+        getNodeModel(document.body).append(dragImage);
+        event.dataTransfer?.setDragImage(dragImage[0], 0, 0);
+      }
+    });
+    this.editArea.on("dragover", (event: DragEvent) => {
+      const dragoverHelper = this.dragoverToolkit;
+      const targetCursor = getNodeModel(`body > div.${ROOT}-drop-cursor`);
+      if (targetCursor.length !== 0) {
+        dragoverHelper.parseEvent(event);
+        dropRange = dragoverHelper.getRange()!;
+        const cursor = dragoverHelper.getCursor()!;
+        targetCursor.css({
+          height: cursor.height + "px",
+          top: Math.round(window.pageYOffset + cursor.y!) + "px",
+          left: Math.round(window.pageXOffset + cursor.x!) + "px",
+        });
+      } else {
+        setCursor();
+      }
+    });
+
+    this.editArea.on("dragleave", () => {
+      removeCursor();
+    });
+    this.editArea.on("dragend", () => {
+      removeCursor();
+      if (dragImage) {
+        dragImage.remove();
+        dragImage = undefined;
+      }
+    });
+    this.editArea.on("drop", (event: DragEvent) => {
+      // 禁止拖图进浏览器，浏览器默认打开图片文件
+      event.preventDefault();
+
+      if (blockRoot) {
+        this.block.showCardToolbar(blockRoot);
+      }
+
+      removeCursor();
+      if (dragImage) {
+        dragImage.remove();
+        dragImage = undefined;
+      }
+      const transfer = event.dataTransfer!;
+      let files: File[] = [];
+      try {
+        if (transfer.items && transfer.items.length > 0) {
+          // for Edge
+          files = Array.from(transfer.items)
+            .map((item) => {
+              return item.kind === "file" ? item.getAsFile() : null;
+            })
+            .filter((exists) => {
+              return exists;
+            }) as File[];
+        } else if (transfer.files && transfer.files.length > 0) {
+          files = Array.from(transfer.files);
+        }
+      } catch (error) {
+        if (transfer.files && transfer.files.length > 0) {
+          files = Array.from(transfer.files);
+        }
+        console.error("Error extracting files from drag event:", error);
+      }
+      const data = {
+        event,
+        dropRange,
+        blockRoot,
+        files,
+      };
+      handler(data);
+      blockRoot = undefined;
+    });
+  }
   /**
    * 移除拖拽放置事件监听
    * @param handler - 事件处理器
