@@ -8,6 +8,11 @@ import { CommandInterface } from "../core/command";
 import { Engine } from "../core/engine";
 import { NodeModel } from "../core/node";
 
+export type Position = {
+  x: number;
+  y: number;
+};
+
 /**
  * DOM 节点相关类型
  */
@@ -21,7 +26,10 @@ export type Selector = string;
 /**
  * 事件回调函数类型
  */
-export type EventCallback<T = any> = (data: T, ...rest: any[]) => void | boolean;
+export type EventCallback<T = any> = (
+  data: T,
+  ...rest: any[]
+) => void | boolean;
 
 /**
  * 异步事件回调函数类型
@@ -108,16 +116,16 @@ export interface BlockValue {
 export interface CardToolbarItemConfig {
   /** 工具栏项类型 */
   type:
-  | "button"
-  | "dropdown"
-  | "separator"
-  | "dnd"
-  | "copy"
-  | "delete"
-  | "maximize"
-  | "node"
-  | "collapse"
-  | "expand";
+    | "button"
+    | "dropdown"
+    | "separator"
+    | "dnd"
+    | "copy"
+    | "delete"
+    | "maximize"
+    | "node"
+    | "collapse"
+    | "expand";
 
   /** 标题 */
   title?: string;
@@ -131,16 +139,16 @@ export interface CardToolbarItemConfig {
 export interface CardToolbarItem {
   /** 工具栏项类型 */
   type:
-  | "button"
-  | "dropdown"
-  | "separator"
-  | "dnd"
-  | "copy"
-  | "delete"
-  | "maximize"
-  | "node"
-  | "collapse"
-  | "expand";
+    | "button"
+    | "dropdown"
+    | "separator"
+    | "dnd"
+    | "copy"
+    | "delete"
+    | "maximize"
+    | "node"
+    | "collapse"
+    | "expand";
 
   node: NodeModel;
 
@@ -452,7 +460,7 @@ export interface Plugin extends PluginInterface, PluginLifecycle {
  * 插件构造函数
  */
 export interface PluginConstructor {
-  new(engine: Engine, options?: PluginOptions): Plugin;
+  new (engine: Engine, options?: PluginOptions): Plugin;
   pluginName: string;
   defaultOptions?: PluginOptions;
 }
@@ -468,7 +476,7 @@ export interface PluginMetadata {
   displayName?: string;
 
   /** 插件类型 */
-  type?: 'core' | 'format' | 'element' | 'tool' | 'extension';
+  type?: "core" | "format" | "element" | "tool" | "extension";
 
   /** 插件分类 */
   category?: string;
@@ -480,7 +488,7 @@ export interface PluginMetadata {
   isCore?: boolean;
 
   /** 插件状态 */
-  status?: 'installed' | 'enabled' | 'disabled' | 'error';
+  status?: "installed" | "enabled" | "disabled" | "error";
 
   /** 插件实例 */
   instance?: Plugin;
@@ -547,17 +555,17 @@ export interface PluginManagerInterface {
  */
 export enum CommandType {
   /** 格式命令 */
-  FORMAT = 'format',
+  FORMAT = "format",
   /** 插入命令 */
-  INSERT = 'insert',
+  INSERT = "insert",
   /** 删除命令 */
-  DELETE = 'delete',
+  DELETE = "delete",
   /** 选择命令 */
-  SELECT = 'select',
+  SELECT = "select",
   /** 历史命令 */
-  HISTORY = 'history',
+  HISTORY = "history",
   /** 工具命令 */
-  TOOL = 'tool'
+  TOOL = "tool",
 }
 
 /**
@@ -881,7 +889,7 @@ export interface SchemaRule {
   /** 元素名称 */
   name: string;
   /** 元素类型 */
-  type: 'block' | 'inline' | 'mark';
+  type: "block" | "inline" | "mark";
   /** 允许的属性 */
   attributes?: string[] | Record<string, any>;
   /** 是否为空元素 */
@@ -977,7 +985,7 @@ export interface BlockComponentData {
   hasFocus?: boolean;
 
   /** 是否嵌入工具栏 */
-  embedToolbar?: () => CardToolbarItemConfig[];
+  embedToolbar?: (container?: HTMLElement) => CardToolbarItemConfig[];
 
   singleSelectable: boolean;
 
@@ -998,6 +1006,8 @@ export interface BlockComponentData {
   collapse?: () => void;
 
   restore?: () => void;
+
+  active?: boolean;
 }
 
 export interface BlockConfig {
@@ -1007,7 +1017,7 @@ export interface BlockConfig {
   contentView: HTMLElement | NodeModel | null;
   blockRoot?: NodeModel;
   node?: NodeModel;
-  value?: string | Record<string, any>
+  value?: string | Record<string, any>;
 }
 
 /**

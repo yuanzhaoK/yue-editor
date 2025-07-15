@@ -1,0 +1,150 @@
+.card-resize-button-ud {
+  position     : absolute;
+  bottom       : -3px;
+  right        : 0px;
+  left         : 0px;
+  margin       : 0 auto;
+  z-index      : 2;
+  border-radius: 6px;
+
+}
+
+.card-resize-button-ud:hover {
+  cursor: row-resize;
+
+}
+
+.daphne-scrollable::-webkit-scrollbar {
+  display: none;
+
+}
+
+.daphne-scrollable.scroll-x {
+  padding-bottom: 10px;
+  overflow-x    : hidden;
+
+}
+
+.daphne-scrollable.scroll-x:hover {
+  overflow-x: auto;
+
+}
+
+.daphne-scrollable.scroll-y {
+  padding-right: 10px;
+  overflow-y   : hidden;
+
+}
+
+.daphne-scrollable.scroll-y:hover {
+  overflow-y: auto;
+
+}
+
+.daphne-scrollable:hover .daphne-scrollbar {
+  display: block;
+
+}
+
+.daphne-scrollable.scrolling {
+  -webkit-user-select: none;
+  -moz-user-select   : none;
+  -ms-user-select    : none;
+  user-select        : none;
+
+}
+
+.daphne-scrollable.scrolling .daphne-scrollbar {
+  display: block;
+
+}
+
+.daphne-scrollable .daphne-scrollbar {
+  display   : none;
+  position  : absolute;
+  cursor    : default;
+  transition: opacity 0.3s ease-in-out;
+
+}
+
+.daphne-scrollable .daphne-scrollbar .daphne-scrollbar-trigger {
+  position     : absolute;
+  background   : #c1c1c1;
+  border-radius: 10px;
+  cursor       : pointer;
+
+}
+
+.daphne-scrollable .daphne-scrollbar .daphne-scrollbar-trigger:hover {
+  background: #888;
+
+}
+
+.daphne-scrollable .daphne-scrollbar.daphne-scrollbar-x {
+  width : 100%;
+  height: 8px;
+  bottom: 0px;
+
+}
+
+.daphne-scrollable .daphne-scrollbar.daphne-scrollbar-x .daphne-scrollbar-trigger {
+  height   : 8px;
+  min-width: 60px;
+
+}
+
+.daphne-scrollable .daphne-scrollbar.daphne-scrollbar-y {
+  top   : 0;
+  width : 8px;
+  height: 100%;
+  right : 0px;
+
+}
+
+.daphne-scrollable .daphne-scrollbar.daphne-scrollbar-y .daphne-scrollbar-trigger {
+  width     : 8px;
+  min-height: 60px;
+
+}
+
+.daphne-scrollable .scrollbar-shadow-left {
+  position      : absolute;
+  z-index       : 10;
+  left          : 0;
+  top           : 0;
+  bottom        : 0;
+  width         : 4px;
+  opacity       : 0.5;
+  background    : linear-gradient(270deg, rgba(99, 114, 130, 0) 0, rgba(99, 114, 130, 0.16));
+  background    : -webkit-linear-gradient(right, rgba(99, 114, 130, 0), rgba(99, 114, 130, 0.16));
+  pointer-events: none;
+
+}
+
+.daphne-scrollable .scrollbar-shadow-right {
+  position      : absolute;
+  z-index       : 10;
+  left          : 0;
+  top           : 0;
+  bottom        : 0;
+  width         : 4px;
+  opacity       : 0.5;
+  background    : linear-gradient(90deg, rgba(99, 114, 130, 0) 0, rgba(99, 114, 130, 0.16));
+  background    : -webkit-linear-gradient(left, rgba(99, 114, 130, 0), rgba(99, 114, 130, 0.16));
+  pointer-events: none;
+
+}
+
+.daphne-svg-icon {
+  width              : 16px;
+  height             : 16px;
+  display            : inline-block;
+  vertical-align     : -0.15em;
+  text-align         : center;
+  text-transform     : none;
+  line-height        : 1;
+  text-rendering     : auto;
+  background-repeat  : no-repeat;
+  background-position: center;
+
+}

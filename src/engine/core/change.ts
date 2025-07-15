@@ -178,7 +178,7 @@ export class ChangeManager {
     this.initializeNativeEvents();
   }
 
-  change(value: string) {
+  change(value?: string) {
     this.block.gc();
     this.onChange(value || this.getValue());
   }

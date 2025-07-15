@@ -1,16 +1,31 @@
-import React, { useState, useRef } from 'react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Separator } from '../components/ui/separator';
-import CustomNoteEditor, { CustomNoteEditorRef } from '../components/CustomNoteEditor';
-import { AlertDialogProvider } from '../components/ui/alert-dialog';
-import { Bold, Italic, Link, Heading1, Type, List, ListOrdered, Code, FileJson, FileText, Save, Download } from 'lucide-react';
+import React, { useState, useRef } from "react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Separator } from "../components/ui/separator";
+import CustomNoteEditor, {
+  CustomNoteEditorRef,
+} from "../components/CustomNoteEditor";
+import { AlertDialogProvider } from "../components/ui/alert-dialog";
+import {
+  Bold,
+  Italic,
+  Link,
+  Heading1,
+  Type,
+  List,
+  ListOrdered,
+  Code,
+  FileJson,
+  FileText,
+  Save,
+  Download,
+} from "lucide-react";
 
 interface TestNote {
   id: number;
   title: string;
   content: string;
-  editorType: 'custom';
+  editorType: "custom";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,20 +34,22 @@ export function EditorTestPage() {
   const [notes, setNotes] = useState<TestNote[]>([
     {
       id: 1,
-      title: '测试笔记 1',
-      content: '<p>这是一个<strong>测试笔记</strong>，包含一些<em>格式化</em>的内容。</p><p>还有一个<a href="https://example.com">链接</a>。</p>',
-      editorType: 'custom',
+      title: "测试笔记 1",
+      content:
+        '<p>这是一个<strong>测试笔记</strong>，包含一些<em>格式化</em>的内容。</p><p>还有一个<a href="https://example.com">链接</a>。</p>',
+      editorType: "custom",
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     },
     {
       id: 2,
-      title: '测试笔记 2',
-      content: '<h1>标题 1</h1><p>这是第二个测试笔记。</p><ul><li>列表项 1</li><li>列表项 2</li></ul>',
-      editorType: 'custom',
+      title: "测试笔记 2",
+      content:
+        "<h1>标题 1</h1><p>这是第二个测试笔记。</p><ul><li>列表项 1</li><li>列表项 2</li></ul>",
+      editorType: "custom",
       createdAt: new Date(),
-      updatedAt: new Date()
-    }
+      updatedAt: new Date(),
+    },
   ]);
 
   const [currentNote, setCurrentNote] = useState<TestNote | null>(notes[0]);
@@ -45,7 +62,7 @@ export function EditorTestPage() {
   const [toolbarState, setToolbarState] = useState({
     bold: false,
     italic: false,
-    link: false
+    link: false,
   });
 
   // 更新工具栏状态
@@ -53,9 +70,9 @@ export function EditorTestPage() {
     const engine = customEditorRef.current?.getEngine();
     if (engine) {
       setToolbarState({
-        bold: engine.plugin.queryState('bold'),
-        italic: engine.plugin.queryState('italic'),
-        link: engine.plugin.queryState('link')
+        bold: engine.plugin.queryState("bold"),
+        italic: engine.plugin.queryState("italic"),
+        link: engine.plugin.queryState("link"),
       });
     }
   };
@@ -80,7 +97,7 @@ export function EditorTestPage() {
       const range = engine.change.getRange();
       if (range) {
         engine.history.save(false, false);
-        
+
         const heading = document.createElement(`h${level}`);
         if (range.collapsed) {
           heading.textContent = `标题 ${level}`;
@@ -91,7 +108,7 @@ export function EditorTestPage() {
           heading.appendChild(contents);
           range.insertNode(heading);
         }
-        
+
         engine.change.select(range);
         engine.history.save(true, true);
       }
@@ -105,21 +122,21 @@ export function EditorTestPage() {
       const range = engine.change.getRange();
       if (range) {
         engine.history.save(false, false);
-        
-        const list = document.createElement(ordered ? 'ol' : 'ul');
-        const li = document.createElement('li');
-        
+
+        const list = document.createElement(ordered ? "ol" : "ul");
+        const li = document.createElement("li");
+
         if (range.collapsed) {
-          li.textContent = '列表项';
+          li.textContent = "列表项";
         } else {
           const contents = range.extractContents();
           li.appendChild(contents);
         }
-        
+
         list.appendChild(li);
         range.insertNode(list);
         range.selectNodeContents(li);
-        
+
         engine.change.select(range);
         engine.history.save(true, true);
       }
@@ -133,24 +150,32 @@ export function EditorTestPage() {
       const range = engine.change.getRange();
       if (range) {
         engine.history.save(false, false);
-        
-        const pre = document.createElement('pre');
-        const code = document.createElement('code');
-        
+
+        const pre = document.createElement("pre");
+        const code = document.createElement("code");
+
         if (range.collapsed) {
           code.textContent = '// 代码示例\nconsole.log("Hello, World!");';
         } else {
           const contents = range.extractContents();
           code.appendChild(contents);
         }
-        
+
         pre.appendChild(code);
         range.insertNode(pre);
         range.selectNodeContents(code);
-        
+
         engine.change.select(range);
         engine.history.save(true, true);
       }
+    }
+  };
+  const insertTable = () => {
+    const engine = customEditorRef.current?.getEngine();
+    if (engine) {
+      const range = engine.change.getRange();
+      engine.history.save(false, false);
+      engine.command.execute("table", { rows: 3, cols: 3, id: "zrhVa" });
     }
   };
 
@@ -170,18 +195,18 @@ export function EditorTestPage() {
     if (!currentNote || !hasUnsavedChanges) return;
 
     const title = titleRef.current?.value || currentNote.title;
-    const content = customEditorRef.current?.getContent() || '';
+    const content = customEditorRef.current?.getContent() || "";
 
     const updatedNote = {
       ...currentNote,
       title,
       content,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
-    setNotes(notes.map(note => 
-      note.id === currentNote.id ? updatedNote : note
-    ));
+    setNotes(
+      notes.map((note) => (note.id === currentNote.id ? updatedNote : note))
+    );
     setCurrentNote(updatedNote);
     setHasUnsavedChanges(false);
   };
@@ -191,10 +216,10 @@ export function EditorTestPage() {
     const newNote: TestNote = {
       id: Date.now(),
       title: `新笔记 ${notes.length + 1}`,
-      content: '<p>开始编辑...</p>',
-      editorType: 'custom',
+      content: "<p>开始编辑...</p>",
+      editorType: "custom",
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     setNotes([...notes, newNote]);
@@ -205,7 +230,7 @@ export function EditorTestPage() {
   // 选择笔记
   const handleSelectNote = (note: TestNote) => {
     if (hasUnsavedChanges) {
-      if (!confirm('有未保存的更改，是否放弃？')) {
+      if (!confirm("有未保存的更改，是否放弃？")) {
         return;
       }
     }
@@ -214,15 +239,15 @@ export function EditorTestPage() {
   };
 
   // 导出内容
-  const handleExport = (format: 'html' | 'json') => {
-    const content = customEditorRef.current?.getContent() || '';
-    const title = titleRef.current?.value || currentNote?.title || 'untitled';
-    
+  const handleExport = (format: "html" | "json") => {
+    const content = customEditorRef.current?.getContent() || "";
+    const title = titleRef.current?.value || currentNote?.title || "untitled";
+
     let data: string;
     let mimeType: string;
     let filename: string;
 
-    if (format === 'html') {
+    if (format === "html") {
       data = `<!DOCTYPE html>
 <html>
 <head>
@@ -234,21 +259,25 @@ export function EditorTestPage() {
   ${content}
 </body>
 </html>`;
-      mimeType = 'text/html';
+      mimeType = "text/html";
       filename = `${title}.html`;
     } else {
-      data = JSON.stringify({
-        title,
-        content,
-        exportedAt: new Date().toISOString()
-      }, null, 2);
-      mimeType = 'application/json';
+      data = JSON.stringify(
+        {
+          title,
+          content,
+          exportedAt: new Date().toISOString(),
+        },
+        null,
+        2
+      );
+      mimeType = "application/json";
       filename = `${title}.json`;
     }
 
     const blob = new Blob([data], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
@@ -266,14 +295,14 @@ export function EditorTestPage() {
   // 快捷键支持
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         handleSave();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [hasUnsavedChanges]);
 
   return (
@@ -287,7 +316,7 @@ export function EditorTestPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.location.href = '/'}
+                onClick={() => (window.location.href = "/")}
               >
                 返回主应用
               </Button>
@@ -296,7 +325,7 @@ export function EditorTestPage() {
                 size="sm"
                 onClick={() => setShowDebugInfo(!showDebugInfo)}
               >
-                {showDebugInfo ? '隐藏' : '显示'}调试信息
+                {showDebugInfo ? "隐藏" : "显示"}调试信息
               </Button>
             </div>
           </div>
@@ -310,19 +339,18 @@ export function EditorTestPage() {
           <div className="w-64 border-r p-4 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">测试笔记</h2>
-              <Button
-                size="sm"
-                onClick={handleCreateNote}
-              >
+              <Button size="sm" onClick={handleCreateNote}>
                 新建
               </Button>
             </div>
             <div className="space-y-2">
-              {notes.map(note => (
+              {notes.map((note) => (
                 <div
                   key={note.id}
                   className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                    currentNote?.id === note.id ? 'bg-muted' : 'hover:bg-muted/50'
+                    currentNote?.id === note.id
+                      ? "bg-muted"
+                      : "hover:bg-muted/50"
                   }`}
                   onClick={() => handleSelectNote(note)}
                 >
@@ -353,7 +381,7 @@ export function EditorTestPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleExport('html')}
+                        onClick={() => handleExport("html")}
                       >
                         <FileText className="mr-2 h-4 w-4" />
                         导出 HTML
@@ -361,7 +389,7 @@ export function EditorTestPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleExport('json')}
+                        onClick={() => handleExport("json")}
                       >
                         <FileJson className="mr-2 h-4 w-4" />
                         导出 JSON
@@ -392,7 +420,7 @@ export function EditorTestPage() {
                       <Button
                         variant={toolbarState.bold ? "secondary" : "ghost"}
                         size="sm"
-                        onClick={() => executeCommand('bold')}
+                        onClick={() => executeCommand("bold")}
                         title="加粗 (Ctrl/Cmd+B)"
                       >
                         <Bold className="h-4 w-4" />
@@ -400,7 +428,7 @@ export function EditorTestPage() {
                       <Button
                         variant={toolbarState.italic ? "secondary" : "ghost"}
                         size="sm"
-                        onClick={() => executeCommand('italic')}
+                        onClick={() => executeCommand("italic")}
                         title="斜体 (Ctrl/Cmd+I)"
                       >
                         <Italic className="h-4 w-4" />
@@ -408,7 +436,7 @@ export function EditorTestPage() {
                       <Button
                         variant={toolbarState.link ? "secondary" : "ghost"}
                         size="sm"
-                        onClick={() => executeCommand('link')}
+                        onClick={() => executeCommand("link")}
                         title="链接 (Ctrl/Cmd+K)"
                       >
                         <Link className="h-4 w-4" />
@@ -458,8 +486,8 @@ export function EditorTestPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={insertCode}
-                        title="代码块"
+                        onClick={insertTable}
+                        title="表格"
                       >
                         <Code className="h-4 w-4" />
                       </Button>
@@ -483,17 +511,21 @@ export function EditorTestPage() {
           {showDebugInfo && (
             <div className="w-80 border-l p-4 overflow-y-auto">
               <h3 className="font-semibold mb-4">调试信息</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <h4 className="text-sm font-medium mb-2">当前笔记</h4>
                   <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
-                    {JSON.stringify({
-                      id: currentNote?.id,
-                      title: currentNote?.title,
-                      hasUnsavedChanges,
-                      updatedAt: currentNote?.updatedAt
-                    }, null, 2)}
+                    {JSON.stringify(
+                      {
+                        id: currentNote?.id,
+                        title: currentNote?.title,
+                        hasUnsavedChanges,
+                        updatedAt: currentNote?.updatedAt,
+                      },
+                      null,
+                      2
+                    )}
                   </pre>
                 </div>
 
@@ -507,17 +539,21 @@ export function EditorTestPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-2">当前内容 (HTML)</h4>
                   <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap">
-                    {customEditorRef.current?.getContent() || '(空)'}
+                    {customEditorRef.current?.getContent() || "(空)"}
                   </pre>
                 </div>
 
                 <div>
                   <h4 className="text-sm font-medium mb-2">引擎信息</h4>
                   <pre className="text-xs bg-muted p-2 rounded">
-                    {JSON.stringify({
-                      hasEngine: !!customEditorRef.current?.getEngine(),
-                      plugins: ['bold', 'italic', 'link'] // 已注册的插件
-                    }, null, 2)}
+                    {JSON.stringify(
+                      {
+                        hasEngine: !!customEditorRef.current?.getEngine(),
+                        plugins: ["bold", "italic", "link"], // 已注册的插件
+                      },
+                      null,
+                      2
+                    )}
                   </pre>
                 </div>
               </div>
@@ -527,4 +563,4 @@ export function EditorTestPage() {
       </div>
     </AlertDialogProvider>
   );
-} 
+}

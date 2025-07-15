@@ -1065,7 +1065,7 @@ export class NodeModel implements NodeModelInterface {
       }
     });
 
-    return new NodeModel(nodes) as NodeModelInterface;
+    return new NodeModel(nodes) as NodeModel;
   }
 
 }
