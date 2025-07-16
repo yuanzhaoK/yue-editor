@@ -181,7 +181,10 @@ CREATE TABLE note_tags (
 ### v0.2.0 
 -  自研编辑器引擎
 
-## 🤝 贡献指南
+## 应用截图
+![](./image.png)
+
+
 
 欢迎提交 Issue 和 Pull Request！
 
